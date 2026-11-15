@@ -23,7 +23,6 @@ import {
   type MorphCandidate 
 } from './utils/musicTheory';
 import { 
-  generateVoiceLeadingMorphs, 
   generateRandomRawChord, 
   sampleRandomMorph 
 } from './utils/morphEngine';
@@ -31,13 +30,12 @@ import { audioEngine } from './utils/audioEngine';
 import { isUserAuthenticated, logout } from './utils/auth';
 import { AuthGate } from './components/AuthGate';
 import { InteractivePiano } from './components/InteractivePiano';
-import { MorphCandidateCard } from './components/MorphCandidateCard';
 import { ProgressionStrip, type SavedChord } from './components/ProgressionStrip';
 import { ChordVoicingModal } from './components/ChordVoicingModal';
 import { SavedProgressionsModal } from './components/SavedProgressionsModal';
 import { ACCOMPANIMENT_PATTERNS } from './utils/accompanimentPatterns';
 import { type SavedProgressionItem } from './utils/progressionStorage';
-import { FolderHeart } from 'lucide-react';
+import { FolderHeart, ArrowRight } from 'lucide-react';
 
 export function App() {
   // Authentication status
@@ -139,6 +137,7 @@ export function App() {
   };
 
   // 2. Sample Random Morph & Play Sequence (Base -> Morph)
+  // 2. Sample Random Morph & Play Sequence (Plays from 1st chord if 3rd+ chord is being generated)
   const handleRandomMorphAndPlay = async () => {
     if (isTransitionPlaying) return;
     setIsTransitionPlaying(true);
@@ -147,34 +146,62 @@ export function App() {
     const candidate = sampleRandomMorph(customNotes, lockedVoices, maxDelta);
     setCurrentMorphCandidate(candidate);
 
-    // Play Base Chord for exactly 2 seconds
-    setActiveAuditionIndex('base');
-    audioEngine.playChord(customNotes, 2.0);
+    // If progression already has chords saved, play from Chord 1 through the current progression, then candidate!
+    if (progression.length > 0) {
+      // Play saved progression chords sequentially
+      for (let i = 0; i < progression.length; i++) {
+        setActivePlayStep(i);
+        audioEngine.playChord(progression[i].notes, 1.8);
+        await new Promise(resolve => setTimeout(resolve, 1800));
+      }
+      // Finally play the new morph candidate
+      setActivePlayStep(progression.length);
+      setActiveAuditionIndex('morph');
+      audioEngine.playChord(candidate.notes, 2.0);
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      setActivePlayStep(-1);
+    } else {
+      // First 2 chords: Play Base Chord for 2.0s
+      setActiveAuditionIndex('base');
+      audioEngine.playChord(customNotes, 2.0);
+      await new Promise(resolve => setTimeout(resolve, 2000));
 
-    // Wait exactly 2.0s (2000ms) then play Morph Candidate
-    await new Promise(resolve => setTimeout(resolve, 2000));
-    setActiveAuditionIndex('morph');
-    audioEngine.playChord(candidate.notes, 2.0);
+      // Then play Morph Candidate for 2.0s
+      setActiveAuditionIndex('morph');
+      audioEngine.playChord(candidate.notes, 2.0);
+      await new Promise(resolve => setTimeout(resolve, 2000));
+    }
 
-    // Let the second chord ring for 2.0s
-    await new Promise(resolve => setTimeout(resolve, 2000));
     setActiveAuditionIndex(null);
     setIsTransitionPlaying(false);
   };
 
-  // Play just the transition between Current Base and Current Morph (2s each)
+  // Replay transition: If progression exists, play from 1st chord to current candidate
   const handleReplayTransition = async () => {
     if (!currentMorphCandidate || isTransitionPlaying) return;
     setIsTransitionPlaying(true);
 
-    setActiveAuditionIndex('base');
-    audioEngine.playChord(customNotes, 2.0);
+    if (progression.length > 0) {
+      for (let i = 0; i < progression.length; i++) {
+        setActivePlayStep(i);
+        audioEngine.playChord(progression[i].notes, 1.8);
+        await new Promise(resolve => setTimeout(resolve, 1800));
+      }
+      setActivePlayStep(progression.length);
+      setActiveAuditionIndex('morph');
+      audioEngine.playChord(currentMorphCandidate.notes, 2.0);
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      setActivePlayStep(-1);
+    } else {
+      setActiveAuditionIndex('base');
+      audioEngine.playChord(customNotes, 2.0);
+      await new Promise(resolve => setTimeout(resolve, 2000));
 
-    await new Promise(resolve => setTimeout(resolve, 2000));
-    setActiveAuditionIndex('morph');
-    audioEngine.playChord(currentMorphCandidate.notes, 2.0);
+      setActiveAuditionIndex('morph');
+      audioEngine.playChord(currentMorphCandidate.notes, 2.0);
+      await new Promise(resolve => setTimeout(resolve, 2000));
+    }
 
-    await new Promise(resolve => setTimeout(resolve, 2000));
     setActiveAuditionIndex(null);
     setIsTransitionPlaying(false);
   };
@@ -223,14 +250,6 @@ export function App() {
   const currentChordName = useMemo(() => {
     return identifyChord(customNotes);
   }, [customNotes]);
-
-  // Candidate grid for manual browsing (top 16 curated transitions)
-  const candidateList = useMemo(() => {
-    return generateVoiceLeadingMorphs(customNotes, lockedVoices, {
-      maxDelta: maxDelta,
-      maxVoicesMoving: 3
-    }).slice(0, 16);
-  }, [customNotes, lockedVoices, maxDelta]);
 
   // Adjust single voice
   const adjustVoice = (voiceIndex: number, delta: number) => {
@@ -301,8 +320,8 @@ export function App() {
   }
 
   return (
-    <div className="min-h-screen text-slate-100 p-4 md:p-8 flex flex-col items-center">
-      <div className="w-full max-w-6xl space-y-6">
+    <div className="min-h-screen text-slate-100 p-5 sm:p-6 md:p-8 flex flex-col items-center">
+      <div className="w-full max-w-6xl space-y-7 sm:space-y-8">
         
         {/* Top Header */}
         <header className="flex flex-wrap items-center justify-between gap-4 pb-4 border-b border-white/10">
@@ -344,15 +363,15 @@ export function App() {
         </header>
 
         {/* HERO FEATURE: Instant 2-Chord Random Transition Player */}
-        <section className="glass-panel p-4 sm:p-6 border-2 border-sky-500/30 shadow-[0_0_35px_rgba(56,189,248,0.15)] bg-gradient-to-b from-slate-900/90 to-slate-950/90">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+        <section className="glass-panel p-4 sm:p-6 sm:p-7 border-2 border-sky-500/30 shadow-[0_0_35px_rgba(56,189,248,0.15)] bg-gradient-to-b from-slate-900/90 to-slate-950/90 space-y-5">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-white/10">
             <div>
               <span className="text-xs font-mono font-semibold tracking-wider text-sky-400 uppercase flex items-center gap-1.5">
                 <FastForward size={14} />
                 Instant Voice Transition (起点コード → ランダム変形コードを連続再生)
               </span>
               <p className="text-xs text-slate-400 mt-0.5">
-                各構成音ごとに <strong>-2〜+2半音</strong> をランダム抽選して2つのコードを続けて鳴らします。
+                各構成音ごとに <strong>-2〜+2半音</strong> をランダム抽選。3つ目以降のコードも1つ目から通して試聴できます。
               </p>
             </div>
 
@@ -377,6 +396,63 @@ export function App() {
             </div>
           </div>
 
+          {/* 3つ目以降の探索時：ファーストビュー上部に小さく1つ目からの進行を表示 */}
+          {progression.length > 0 && (
+            <div className="p-3 sm:p-4 rounded-xl bg-black/40 border border-white/10 space-y-2">
+              <div className="flex items-center justify-between text-xs text-slate-400">
+                <span className="font-mono flex items-center gap-1.5 font-bold text-teal-300">
+                  <span className="w-2 h-2 rounded-full bg-teal-400"></span>
+                  保存中のコード進行 (1つ目から表示中: 計{progression.length}コード)
+                </span>
+                <span className="text-[11px] text-slate-500 font-mono">
+                  ※再生時は1つ目のコードから順に鳴ります
+                </span>
+              </div>
+
+              <div className="flex items-center gap-2 overflow-x-auto py-1">
+                {progression.map((chord, idx) => {
+                  const isPlayingThis = activePlayStep === idx;
+                  return (
+                    <React.Fragment key={chord.id || idx}>
+                      <div
+                        onClick={() => audioEngine.playChord(chord.notes, 2.0)}
+                        className={`flex-shrink-0 px-3 py-2 rounded-xl border cursor-pointer select-none transition-all ${
+                          isPlayingThis
+                            ? 'bg-teal-500/30 border-teal-400 text-white shadow-md ring-2 ring-teal-400/50 scale-105'
+                            : 'bg-slate-900/90 hover:bg-slate-800 border-white/10 text-slate-200'
+                        }`}
+                        title="タップして単独試聴"
+                      >
+                        <div className="text-[10px] font-mono text-sky-400 font-bold">
+                          #{idx + 1}
+                        </div>
+                        <div className="text-xs sm:text-sm font-bold tracking-tight">
+                          {chord.name || identifyChord(chord.notes)}
+                        </div>
+                        <div className="text-[9px] font-mono text-slate-400 mt-0.5 flex gap-1">
+                          {chord.notes.map((n, ni) => (
+                            <span key={ni} className={ni === 0 ? 'text-amber-300 font-semibold' : ''}>
+                              {midiToNote(n).name}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+
+                      {idx < progression.length - 1 && (
+                        <ArrowRight size={12} className="text-slate-600 flex-shrink-0" />
+                      )}
+                    </React.Fragment>
+                  );
+                })}
+
+                <ArrowRight size={14} className="text-teal-400 flex-shrink-0 animate-pulse" />
+                <span className="text-[11px] font-mono font-bold text-teal-300 bg-teal-500/10 px-2 py-1 rounded-lg border border-teal-500/20 flex-shrink-0">
+                  次: #{progression.length + 1} を探索中
+                </span>
+              </div>
+            </div>
+          )}
+
           {/* Dual Chord Stages (Base Chord -> Morph Result) */}
           <div className="grid grid-cols-1 md:grid-cols-11 gap-3 sm:gap-4 items-center">
             
@@ -384,7 +460,7 @@ export function App() {
             <div 
               onClick={() => audioEngine.playChord(customNotes, 2.0)}
               className={`md:col-span-5 p-4 sm:p-5 rounded-2xl border transition-all duration-300 cursor-pointer select-none group min-h-[110px] ${
-                activeAuditionIndex === 'base'
+                activeAuditionIndex === 'base' || (progression.length > 0 && activePlayStep === progression.length - 1)
                   ? 'bg-sky-950/70 border-sky-400 ring-2 ring-sky-400/50 shadow-lg shadow-sky-950'
                   : 'bg-slate-900/80 hover:bg-slate-850 border-white/10 hover:border-sky-500/50 hover:shadow-md'
               }`}
@@ -392,8 +468,10 @@ export function App() {
             >
               <div className="flex justify-between items-center text-xs text-slate-400 mb-1">
                 <span className="font-mono flex items-center gap-1.5 font-bold">
-                  {activeAuditionIndex === 'base' && <span className="w-2.5 h-2.5 rounded-full bg-sky-400 animate-ping"></span>}
-                  ① 起点コード (Base)
+                  {(activeAuditionIndex === 'base' || (progression.length > 0 && activePlayStep === progression.length - 1)) && (
+                    <span className="w-2.5 h-2.5 rounded-full bg-sky-400 animate-ping"></span>
+                  )}
+                  {progression.length > 0 ? `直前コード (#${progression.length})` : '① 起点コード (Base)'}
                 </span>
                 <span className="text-xs font-mono text-sky-400 group-hover:text-sky-300 flex items-center gap-1 bg-sky-950/60 px-2 py-0.5 rounded-md border border-sky-800/40 font-semibold">
                   <Volume2 size={13} /> タップで再生
@@ -426,7 +504,7 @@ export function App() {
               className={`md:col-span-5 p-4 sm:p-5 rounded-2xl border transition-all duration-300 select-none group min-h-[110px] ${
                 currentMorphCandidate ? 'cursor-pointer' : ''
               } ${
-                activeAuditionIndex === 'morph'
+                activeAuditionIndex === 'morph' || (progression.length > 0 && activePlayStep === progression.length)
                   ? 'bg-teal-950/70 border-teal-400 ring-2 ring-teal-400/50 shadow-lg shadow-teal-950'
                   : currentMorphCandidate
                   ? 'bg-slate-900/80 hover:bg-slate-850 border-teal-500/30 hover:border-teal-400/60 hover:shadow-md'
@@ -436,8 +514,10 @@ export function App() {
             >
               <div className="flex justify-between items-center text-xs text-slate-400 mb-1">
                 <span className="font-mono flex items-center gap-1.5 font-bold">
-                  {activeAuditionIndex === 'morph' && <span className="w-2.5 h-2.5 rounded-full bg-teal-400 animate-ping"></span>}
-                  ② 遷移先 (Random Morph)
+                  {(activeAuditionIndex === 'morph' || (progression.length > 0 && activePlayStep === progression.length)) && (
+                    <span className="w-2.5 h-2.5 rounded-full bg-teal-400 animate-ping"></span>
+                  )}
+                  {progression.length > 0 ? `次候補 (#${progression.length + 1})` : '② 遷移先 (Random Morph)'}
                 </span>
                 {currentMorphCandidate ? (
                   <span className="text-xs font-mono text-teal-400 group-hover:text-teal-300 flex items-center gap-1 bg-teal-950/60 px-2 py-0.5 rounded-md border border-teal-800/40 font-semibold">
@@ -631,60 +711,65 @@ export function App() {
           </div>
         </section>
 
-        {/* Main Content Layout */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        {/* Main Content Layout: Base Chord Generator & Voicing Tuner */}
+        <section className="glass-panel p-5 sm:p-7 space-y-6">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-white/10">
+            <div>
+              <span className="text-xs font-semibold tracking-wider text-sky-400 uppercase font-mono flex items-center gap-1.5">
+                <Sliders size={14} />
+                起点コード & 各声部の詳細設定 (Base Chord & Voices)
+              </span>
+              <p className="text-xs text-slate-400 mt-0.5">
+                各声部（ベース音・内声・最高音）の音程微調整や、動かしたくない声部の固定（Lock）が行えます
+              </p>
+            </div>
+            
+            {/* Voice count switch */}
+            <div className="flex items-center gap-1.5 bg-black/40 p-1.5 rounded-xl border border-white/10 text-xs font-mono self-start sm:self-auto">
+              <span className="text-slate-400 text-xs px-1">声部数:</span>
+              {[3, 4, 5].map((cnt) => (
+                <button
+                  key={cnt}
+                  onClick={() => {
+                    setVoiceCount(cnt);
+                    handleGenerateRandomBase(cnt);
+                  }}
+                  className={`min-h-[32px] px-3 rounded-lg font-bold transition-all active:scale-95 ${
+                    voiceCount === cnt
+                      ? 'bg-sky-500 text-slate-950 shadow-md'
+                      : 'text-slate-300 hover:text-white bg-slate-800/80'
+                  }`}
+                >
+                  {cnt}和音
+                </button>
+              ))}
+            </div>
+          </div>
 
-          {/* Left Column: Base Chord Generator & Randomizer */}
-          <section className="lg:col-span-5 space-y-5">
-            <div className="glass-panel p-5 space-y-4">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-semibold tracking-wider text-sky-400 uppercase font-mono">
-                  起点コードの設定 (Base Chord)
-                </span>
-                
-                {/* Voice count switch */}
-                <div className="flex items-center gap-1 bg-black/40 p-1 rounded-lg border border-white/5 text-xs font-mono">
-                  <span className="text-slate-500 text-[10px] px-1">声部数:</span>
-                  {[3, 4, 5].map((cnt) => (
-                    <button
-                      key={cnt}
-                      onClick={() => {
-                        setVoiceCount(cnt);
-                        handleGenerateRandomBase(cnt);
-                      }}
-                      className={`px-2 py-0.5 rounded transition-all ${
-                        voiceCount === cnt
-                          ? 'bg-sky-500 text-slate-950 font-bold'
-                          : 'text-slate-400 hover:text-white'
-                      }`}
-                    >
-                      {cnt}和音
-                    </button>
-                  ))}
-                </div>
-              </div>
-
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+            {/* Left Controls: Random Generator & Presets */}
+            <div className="lg:col-span-6 space-y-4">
               {/* Random Base Chord Generator Button */}
-              <div className="p-3.5 bg-gradient-to-r from-amber-500/10 to-sky-500/10 rounded-xl border border-amber-500/20 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+              <div className="p-4 bg-gradient-to-r from-amber-500/10 to-sky-500/10 rounded-2xl border border-amber-500/20 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div>
-                  <span className="text-xs sm:text-sm font-bold text-amber-300 block">
+                  <span className="text-sm font-bold text-amber-300 block">
                     起点コードを完全ランダム生成
                   </span>
-                  <span className="text-[11px] text-slate-400">
+                  <span className="text-xs text-slate-400">
                     協和音・既存コードに限定せず、偶発的な響きを抽出
                   </span>
                 </div>
                 <button
                   onClick={() => handleGenerateRandomBase(voiceCount)}
-                  className="min-h-[44px] flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 active:scale-[0.98] text-slate-950 text-xs sm:text-sm font-black shadow-md transition-all self-stretch sm:self-auto"
+                  className="min-h-[46px] flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 active:scale-[0.98] text-slate-950 text-xs sm:text-sm font-black shadow-md transition-all self-stretch sm:self-auto shrink-0"
                 >
-                  <Dices size={16} />
+                  <Dices size={18} />
                   <span>ランダム生成</span>
                 </button>
               </div>
 
               {/* Or Select from Traditional Presets */}
-              <div className="pt-1">
+              <div>
                 <label className="text-xs text-slate-400 mb-1.5 block font-medium">
                   または定番プリセット和音から選ぶ (ベースC3 + 和音C4以上)
                 </label>
@@ -700,7 +785,7 @@ export function App() {
                     setCurrentMorphCandidate(null);
                     audioEngine.playChord(notes, 2.0);
                   }}
-                  className="w-full min-h-[44px] bg-slate-900 border border-white/10 rounded-xl px-3.5 py-2.5 text-xs sm:text-sm text-slate-100 focus:border-sky-500 transition-colors cursor-pointer"
+                  className="w-full min-h-[46px] bg-slate-900 border border-white/10 rounded-xl px-3.5 py-2.5 text-xs sm:text-sm text-slate-100 focus:border-sky-500 transition-colors cursor-pointer"
                 >
                   {PRESET_CHORDS.map((p, idx) => (
                     <option key={idx} value={idx}>
@@ -710,162 +795,109 @@ export function App() {
                 </select>
               </div>
 
-              {/* Individual Voice Controls (Fine -2 / -1 / 0 / +1 / +2 Tweak & Lock) */}
-              <div className="space-y-2 pt-2 border-t border-white/10">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-medium text-slate-300 flex items-center gap-1.5">
-                    <Sliders size={13} className="text-sky-400" />
-                    各声部の微調整 & 固定 (Lock)
-                  </span>
-                  <span className="text-[11px] text-slate-500">
-                    鍵マークで声を固定
-                  </span>
+              {/* Interactive Keyboard Visualizer */}
+              <div className="pt-2">
+                <div className="flex items-center justify-between pb-2 text-xs text-slate-400 font-mono">
+                  <span>ボイシング可視化 (Keyboard)</span>
+                  <span>C3 - E5</span>
                 </div>
+                <InteractivePiano
+                  activeNotes={currentMorphCandidate ? currentMorphCandidate.notes : customNotes}
+                  onNoteClick={(midi) => audioEngine.playChord([midi])}
+                />
+              </div>
+            </div>
 
-                <div className="space-y-2">
-                  {customNotes.map((midi, voiceIdx) => {
-                    const isLocked = lockedVoices.includes(voiceIdx);
-                    const noteInfo = midiToNote(midi);
-                    const voiceRole =
-                      voiceIdx === 0
-                        ? 'Bass (最低音)'
-                        : voiceIdx === customNotes.length - 1
-                        ? 'Lead (最高音)'
-                        : `Voice ${voiceIdx + 1} (内声)`;
+            {/* Right Controls: Individual Voice Tweak & Lock */}
+            <div className="lg:col-span-6 space-y-2.5">
+              <div className="flex items-center justify-between text-xs text-slate-400 font-medium px-1">
+                <span>各声部の音程 & 固定 (Lock)</span>
+                <span>-2 / -1 / +1 / +2 半音</span>
+              </div>
 
-                    return (
-                      <div
-                        key={voiceIdx}
-                        className={`flex items-center justify-between p-2.5 rounded-xl border transition-all ${
-                          isLocked
-                            ? 'bg-slate-950/60 border-amber-500/40'
-                            : 'bg-slate-900/60 border-white/5'
-                        }`}
-                      >
-                        <div className="flex items-center gap-2.5">
-                          <button
-                            onClick={() => toggleVoiceLock(voiceIdx)}
-                            title={isLocked ? 'ロック解除' : 'この声を固定してモーフィング'}
-                            className={`min-w-[40px] min-h-[40px] flex items-center justify-center rounded-xl border transition-colors ${
-                              isLocked
-                                ? 'bg-amber-500/25 text-amber-300 border-amber-500/50'
-                                : 'text-slate-400 hover:text-slate-200 border-white/10 bg-slate-800/60'
-                            }`}
-                          >
-                            {isLocked ? <Lock size={16} /> : <Unlock size={16} />}
-                          </button>
-                          <div>
-                            <span className="text-[11px] text-slate-400 block font-medium">
-                              {voiceRole}
+              <div className="space-y-2">
+                {customNotes.map((midi, voiceIdx) => {
+                  const isLocked = lockedVoices.includes(voiceIdx);
+                  const noteInfo = midiToNote(midi);
+                  const voiceRole =
+                    voiceIdx === 0
+                      ? 'Bass (最低音)'
+                      : voiceIdx === customNotes.length - 1
+                      ? 'Lead (最高音)'
+                      : `Voice ${voiceIdx + 1} (内声)`;
+
+                  return (
+                    <div
+                      key={voiceIdx}
+                      className={`flex items-center justify-between p-3 rounded-xl border transition-all ${
+                        isLocked
+                          ? 'bg-slate-950/70 border-amber-500/40'
+                          : 'bg-slate-900/70 border-white/5'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2.5">
+                        <button
+                          onClick={() => toggleVoiceLock(voiceIdx)}
+                          title={isLocked ? 'ロック解除' : 'この声を固定してモーフィング'}
+                          className={`min-w-[42px] min-h-[42px] flex items-center justify-center rounded-xl border transition-colors ${
+                            isLocked
+                              ? 'bg-amber-500/25 text-amber-300 border-amber-500/50'
+                              : 'text-slate-400 hover:text-slate-200 border-white/10 bg-slate-800/70'
+                          }`}
+                        >
+                          {isLocked ? <Lock size={16} /> : <Unlock size={16} />}
+                        </button>
+                        <div>
+                          <span className="text-[11px] text-slate-400 block font-medium">
+                            {voiceRole}
+                          </span>
+                          <span className="text-base font-bold font-mono text-white">
+                            {noteInfo.name}{' '}
+                            <span className="text-xs text-slate-500 font-normal">
+                              ({midi})
                             </span>
-                            <span className="text-base font-bold font-mono text-white">
-                              {noteInfo.name}{' '}
-                              <span className="text-xs text-slate-500 font-normal">
-                                ({midi})
-                              </span>
-                            </span>
-                          </div>
-                        </div>
-
-                        {/* Fine Tweak Buttons (Touch-friendly 38x38px) */}
-                        <div className="flex items-center gap-1 sm:gap-1.5">
-                          <button
-                            onClick={() => adjustVoice(voiceIdx, -2)}
-                            className="w-9 h-9 sm:w-10 sm:h-10 flex items-center justify-center rounded-xl bg-slate-800 hover:bg-rose-950 hover:text-rose-300 active:scale-95 text-slate-200 border border-white/10 text-xs font-mono font-bold"
-                            title="2半音下げる (-2)"
-                          >
-                            -2
-                          </button>
-                          <button
-                            onClick={() => adjustVoice(voiceIdx, -1)}
-                            className="w-9 h-9 sm:w-10 sm:h-10 flex items-center justify-center rounded-xl bg-slate-800 hover:bg-rose-950 hover:text-rose-300 active:scale-95 text-slate-200 border border-white/10 text-xs font-mono font-bold"
-                            title="1半音下げる (-1)"
-                          >
-                            -1
-                          </button>
-                          <button
-                            onClick={() => adjustVoice(voiceIdx, 1)}
-                            className="w-9 h-9 sm:w-10 sm:h-10 flex items-center justify-center rounded-xl bg-slate-800 hover:bg-emerald-950 hover:text-emerald-300 active:scale-95 text-slate-200 border border-white/10 text-xs font-mono font-bold"
-                            title="1半音上げる (+1)"
-                          >
-                            +1
-                          </button>
-                          <button
-                            onClick={() => adjustVoice(voiceIdx, 2)}
-                            className="w-9 h-9 sm:w-10 sm:h-10 flex items-center justify-center rounded-xl bg-slate-800 hover:bg-emerald-950 hover:text-emerald-300 active:scale-95 text-slate-200 border border-white/10 text-xs font-mono font-bold"
-                            title="2半音上げる (+2)"
-                          >
-                            +2
-                          </button>
+                          </span>
                         </div>
                       </div>
-                    );
-                  })}
-                </div>
+
+                      {/* Fine Tweak Buttons (Touch-friendly) */}
+                      <div className="flex items-center gap-1 sm:gap-1.5">
+                        <button
+                          onClick={() => adjustVoice(voiceIdx, -2)}
+                          className="w-10 h-10 flex items-center justify-center rounded-xl bg-slate-800 hover:bg-rose-950 hover:text-rose-300 active:scale-95 text-slate-200 border border-white/10 text-xs font-mono font-bold"
+                          title="2半音下げる (-2)"
+                        >
+                          -2
+                        </button>
+                        <button
+                          onClick={() => adjustVoice(voiceIdx, -1)}
+                          className="w-10 h-10 flex items-center justify-center rounded-xl bg-slate-800 hover:bg-rose-950 hover:text-rose-300 active:scale-95 text-slate-200 border border-white/10 text-xs font-mono font-bold"
+                          title="1半音下げる (-1)"
+                        >
+                          -1
+                        </button>
+                        <button
+                          onClick={() => adjustVoice(voiceIdx, 1)}
+                          className="w-10 h-10 flex items-center justify-center rounded-xl bg-slate-800 hover:bg-emerald-950 hover:text-emerald-300 active:scale-95 text-slate-200 border border-white/10 text-xs font-mono font-bold"
+                          title="1半音上げる (+1)"
+                        >
+                          +1
+                        </button>
+                        <button
+                          onClick={() => adjustVoice(voiceIdx, 2)}
+                          className="w-10 h-10 flex items-center justify-center rounded-xl bg-slate-800 hover:bg-emerald-950 hover:text-emerald-300 active:scale-95 text-slate-200 border border-white/10 text-xs font-mono font-bold"
+                          title="2半音上げる (+2)"
+                        >
+                          +2
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             </div>
-
-            {/* Interactive Keyboard Visualizer */}
-            <div className="glass-panel p-4">
-              <div className="flex items-center justify-between pb-2 text-xs text-slate-400 font-mono">
-                <span>ボイシング可視化 (Keyboard)</span>
-                <span>C3 - E5</span>
-              </div>
-              <InteractivePiano
-                activeNotes={currentMorphCandidate ? currentMorphCandidate.notes : customNotes}
-                onNoteClick={(midi) => audioEngine.playChord([midi])}
-              />
-            </div>
-          </section>
-
-          {/* Right Column: Morph Candidates Gallery & Explorer */}
-          <section className="lg:col-span-7 space-y-4">
-            <div className="glass-panel p-5 space-y-4">
-              <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-white/10">
-                <div>
-                  <h2 className="text-base font-bold text-white flex items-center gap-2">
-                    <Sparkles size={16} className="text-amber-400" />
-                    手動で選べる変形コード一覧 (Gallery)
-                  </h2>
-                  <p className="text-xs text-slate-400 mt-0.5">
-                    ランダム再生だけでなく、一覧から個別にじっくり響きを吟味することもできます
-                  </p>
-                </div>
-              </div>
-
-              {/* Candidates Grid */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-[580px] overflow-y-auto pr-1">
-                {candidateList.map((c) => (
-                  <MorphCandidateCard
-                    key={c.id}
-                    candidate={c}
-                    baseNotes={customNotes}
-                    onPlay={(notes) => audioEngine.playChord(notes)}
-                    onSelectAsBase={(candidate) => {
-                      setCustomNotes([...candidate.notes]);
-                      setLockedVoices([]);
-                      setCurrentMorphCandidate(null);
-                      audioEngine.playChord(candidate.notes);
-                    }}
-                    onAddToProgression={(candidate) => {
-                      const newChord: SavedChord = {
-                        id: `saved-${Date.now()}-${Math.random()}`,
-                        notes: [...candidate.notes],
-                        name: candidate.nameEstimate,
-                        timestamp: Date.now(),
-                      };
-                      setProgression(prev => [...prev, newChord]);
-                      audioEngine.playChord(candidate.notes);
-                    }}
-                    isCurrentlyAuditioning={
-                      currentMorphCandidate?.notes.join(',') === c.notes.join(',')
-                    }
-                  />
-                ))}
-              </div>
-            </div>
-          </section>
-        </div>
+          </div>
+        </section>
 
         {/* Bottom Progression Strip (Timeline / DAW MIDI Export) */}
         <ProgressionStrip
