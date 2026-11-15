@@ -1,8 +1,21 @@
 import React from 'react';
-import { Play, Square, Download, Trash2, ArrowRight, Repeat, Sparkles, Music } from 'lucide-react';
-import { identifyChord } from '../utils/musicTheory';
+import { 
+  Play, 
+  Square, 
+  Download, 
+  Trash2, 
+  ArrowRight, 
+  Repeat, 
+  Sparkles, 
+  Music, 
+  Sliders, 
+  FolderHeart,
+  Volume2
+} from 'lucide-react';
+import { identifyChord, midiToNote } from '../utils/musicTheory';
 import { generateMidiFile } from '../utils/morphEngine';
 import { ACCOMPANIMENT_PATTERNS } from '../utils/accompanimentPatterns';
+import { audioEngine } from '../utils/audioEngine';
 
 export interface SavedChord {
   id: string;
@@ -27,6 +40,8 @@ interface ProgressionStripProps {
   onBpmChange: (bpm: number) => void;
   selectedPatternId: string;
   onPatternChange: (patternId: string) => void;
+  onOpenVoicingModal: (chordIndex?: number) => void;
+  onOpenSavedModal: () => void;
 }
 
 export const ProgressionStrip: React.FC<ProgressionStripProps> = ({
@@ -44,6 +59,8 @@ export const ProgressionStrip: React.FC<ProgressionStripProps> = ({
   onBpmChange,
   selectedPatternId,
   onPatternChange,
+  onOpenVoicingModal,
+  onOpenSavedModal,
 }) => {
   const handleExportMidi = () => {
     if (progression.length === 0) return;
@@ -143,6 +160,28 @@ export const ProgressionStrip: React.FC<ProgressionStripProps> = ({
             </button>
           )}
 
+          {/* Modal Button: Voicing / Note Tweak */}
+          {progression.length > 0 && (
+            <button
+              onClick={() => onOpenVoicingModal()}
+              title="再生中・保存済みの各コードの構成音を半音・オクターブ単位で微調整"
+              className="min-h-[44px] flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl bg-sky-500/20 hover:bg-sky-500/30 text-sky-300 border border-sky-500/40 text-xs sm:text-sm font-semibold transition-all active:scale-[0.98]"
+            >
+              <Sliders size={14} />
+              <span>構成音調整</span>
+            </button>
+          )}
+
+          {/* Modal Button: Saved Progressions Library */}
+          <button
+            onClick={onOpenSavedModal}
+            title="お気に入りの進行を保存・呼び出し・JSONバックアップ"
+            className="min-h-[44px] flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 text-xs sm:text-sm font-semibold transition-all active:scale-[0.98]"
+          >
+            <FolderHeart size={14} />
+            <span>進行保存/呼出</span>
+          </button>
+
           {/* Export MIDI */}
           <button
             onClick={handleExportMidi}
@@ -194,7 +233,7 @@ export const ProgressionStrip: React.FC<ProgressionStripProps> = ({
             return (
               <React.Fragment key={chord.id || idx}>
                 <div
-                  className={`group relative flex-shrink-0 w-40 p-3 rounded-xl border transition-all ${
+                  className={`group relative flex-shrink-0 w-44 p-3 rounded-xl border transition-all ${
                     isCurrentPlaying
                       ? 'bg-gradient-to-b from-sky-900/60 to-teal-900/60 border-teal-400 ring-2 ring-teal-400/50 shadow-[0_0_15px_rgba(45,212,191,0.3)] scale-[1.03]'
                       : 'bg-slate-900/70 hover:bg-slate-800/80 border-white/10 hover:border-sky-500/50'
@@ -202,16 +241,28 @@ export const ProgressionStrip: React.FC<ProgressionStripProps> = ({
                 >
                   <div className="flex justify-between items-center text-[10px] text-slate-400 font-mono mb-1">
                     <span className="font-bold text-sky-400">Chord {idx + 1}</span>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onRemoveChord(idx);
-                      }}
-                      className="opacity-0 group-hover:opacity-100 hover:text-rose-400 transition-opacity p-0.5"
-                      title="削除"
-                    >
-                      ×
-                    </button>
+                    <div className="flex items-center gap-1">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          audioEngine.playChord(chord.notes, 2.0);
+                        }}
+                        className="text-slate-400 hover:text-white p-0.5"
+                        title="単独試聴"
+                      >
+                        <Volume2 size={12} />
+                      </button>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onRemoveChord(idx);
+                        }}
+                        className="opacity-0 group-hover:opacity-100 hover:text-rose-400 transition-opacity p-0.5"
+                        title="削除"
+                      >
+                        ×
+                      </button>
+                    </div>
                   </div>
 
                   <div className="text-lg font-bold text-white tracking-tight truncate">
@@ -222,16 +273,25 @@ export const ProgressionStrip: React.FC<ProgressionStripProps> = ({
                   <div className="text-[10px] text-slate-400 font-mono mt-1.5 flex flex-wrap gap-1">
                     {chord.notes.map((n, i) => (
                       <span key={i} className={`px-1 py-0.5 rounded ${i === 0 ? 'bg-amber-950/70 text-amber-300 font-bold' : 'bg-black/40 text-sky-300'}`}>
-                        {n}
+                        {midiToNote(n).name}
                       </span>
                     ))}
                   </div>
 
-                  {/* Make this Chord the Next Base for morphing */}
-                  <div className="mt-2.5 pt-2 border-t border-white/5 flex items-center justify-between">
+                  {/* Chord Actions: Voicing Tweak & Select as Base */}
+                  <div className="mt-2.5 pt-2 border-t border-white/5 flex flex-col gap-1.5">
+                    <button
+                      onClick={() => onOpenVoicingModal(idx)}
+                      className="w-full flex items-center justify-center gap-1 py-1 px-2 rounded-lg bg-sky-500/10 hover:bg-sky-500/20 text-sky-300 text-[11px] font-semibold border border-sky-500/20 transition-all active:scale-95"
+                      title="このコードの構成音をモーダルで個別に微調整"
+                    >
+                      <Sliders size={11} />
+                      <span>構成音を調整</span>
+                    </button>
+
                     <button
                       onClick={() => onSelectChord(chord)}
-                      className="w-full flex items-center justify-center gap-1 py-1 px-2 rounded-lg bg-sky-500/10 hover:bg-sky-500/20 text-sky-300 text-[11px] font-semibold border border-sky-500/20 transition-all"
+                      className="w-full flex items-center justify-center gap-1 py-1 px-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-[11px] font-semibold border border-white/10 transition-all active:scale-95"
                       title="このコードを起点にして、次のコード（3つ目、4つ目...）を探す"
                     >
                       <Sparkles size={11} className="text-amber-400" />

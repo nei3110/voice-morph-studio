@@ -33,7 +33,11 @@ import { AuthGate } from './components/AuthGate';
 import { InteractivePiano } from './components/InteractivePiano';
 import { MorphCandidateCard } from './components/MorphCandidateCard';
 import { ProgressionStrip, type SavedChord } from './components/ProgressionStrip';
+import { ChordVoicingModal } from './components/ChordVoicingModal';
+import { SavedProgressionsModal } from './components/SavedProgressionsModal';
 import { ACCOMPANIMENT_PATTERNS } from './utils/accompanimentPatterns';
+import { type SavedProgressionItem } from './utils/progressionStorage';
+import { FolderHeart } from 'lucide-react';
 
 export function App() {
   // Authentication status
@@ -59,8 +63,71 @@ export function App() {
   const [bpm, setBpm] = useState<number>(85);
   const [isMuted, setIsMuted] = useState<boolean>(false);
 
+  // Modals State
+  const [isVoicingModalOpen, setIsVoicingModalOpen] = useState<boolean>(false);
+  const [voicingChordIndex, setVoicingChordIndex] = useState<number>(0);
+  const [isSavedModalOpen, setIsSavedModalOpen] = useState<boolean>(false);
+
   // Stop playback reference
   const stopPlaybackRef = React.useRef<(() => void) | null>(null);
+
+  // Modal open helpers
+  const handleOpenVoicingModal = (chordIndex?: number) => {
+    // If progression is empty but user has current chords (Base or Morph), add them to progression so they can be tweaked!
+    if (progression.length === 0) {
+      const chordsToSeed: SavedChord[] = [
+        {
+          id: `saved-${Date.now()}-base`,
+          notes: [...customNotes],
+          name: identifyChord(customNotes),
+          timestamp: Date.now(),
+        }
+      ];
+      if (currentMorphCandidate) {
+        chordsToSeed.push({
+          id: `saved-${Date.now()}-morph`,
+          notes: [...currentMorphCandidate.notes],
+          name: currentMorphCandidate.nameEstimate,
+          timestamp: Date.now(),
+        });
+      }
+      setProgression(chordsToSeed);
+      setVoicingChordIndex(chordIndex ?? 0);
+    } else {
+      setVoicingChordIndex(chordIndex ?? 0);
+    }
+    setIsVoicingModalOpen(true);
+  };
+
+  const handleUpdateChordNotes = (chordIndex: number, updatedNotes: number[]) => {
+    setProgression(prev => {
+      if (chordIndex < 0 || chordIndex >= prev.length) return prev;
+      const clone = [...prev];
+      clone[chordIndex] = {
+        ...clone[chordIndex],
+        notes: updatedNotes,
+        name: identifyChord(updatedNotes),
+      };
+      return clone;
+    });
+
+    // If updating the chord that corresponds to current base, keep base in sync
+    if (chordIndex === 0 && customNotes.length === updatedNotes.length) {
+      setCustomNotes([...updatedNotes]);
+    }
+  };
+
+  const handleLoadProgression = (item: SavedProgressionItem) => {
+    if (item.chords && item.chords.length > 0) {
+      setProgression([...item.chords]);
+      if (item.bpm) setBpm(item.bpm);
+      if (item.patternId) setSelectedPatternId(item.patternId);
+      // Set the first chord as the current base
+      setCustomNotes([...item.chords[0].notes]);
+      setCurrentMorphCandidate(null);
+      audioEngine.playChord(item.chords[0].notes, 2.0);
+    }
+  };
 
   // 1. Generate Completely Random Base Chord (Does not need to be consonant!)
   const handleGenerateRandomBase = (voices: number = voiceCount) => {
@@ -540,6 +607,26 @@ export function App() {
                   <span>伴奏ループ再生</span>
                 </button>
               )}
+
+              {/* Voicing Tuner Modal Button */}
+              <button
+                onClick={() => handleOpenVoicingModal()}
+                title="進行の構成音をモーダルで半音・オクターブ単位で微調整"
+                className="min-h-[42px] px-3.5 py-2 rounded-xl bg-sky-500/20 hover:bg-sky-500/30 text-sky-300 border border-sky-500/40 text-xs sm:text-sm font-semibold transition-all flex items-center gap-1.5 active:scale-[0.98]"
+              >
+                <Sliders size={14} />
+                <span>構成音調整</span>
+              </button>
+
+              {/* Saved Progressions Modal Button */}
+              <button
+                onClick={() => setIsSavedModalOpen(true)}
+                title="お気に入りの進行を保存・呼び出し (localStorage/JSON)"
+                className="min-h-[42px] px-3.5 py-2 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 text-xs sm:text-sm font-semibold transition-all flex items-center gap-1.5 active:scale-[0.98]"
+              >
+                <FolderHeart size={14} />
+                <span>進行保存/呼出</span>
+              </button>
             </div>
           </div>
         </section>
@@ -802,6 +889,29 @@ export function App() {
           onBpmChange={setBpm}
           selectedPatternId={selectedPatternId}
           onPatternChange={setSelectedPatternId}
+          onOpenVoicingModal={handleOpenVoicingModal}
+          onOpenSavedModal={() => setIsSavedModalOpen(true)}
+        />
+
+        {/* Voicing Tuner Modal (Separate popup for adjusting chord notes) */}
+        <ChordVoicingModal
+          isOpen={isVoicingModalOpen}
+          onClose={() => setIsVoicingModalOpen(false)}
+          progression={progression}
+          initialChordIndex={voicingChordIndex}
+          onUpdateChord={handleUpdateChordNotes}
+          isPlayingProgression={isPlayingProgression}
+          activePlayStep={activePlayStep}
+        />
+
+        {/* Serverless Progression Library Modal (localStorage & JSON backup) */}
+        <SavedProgressionsModal
+          isOpen={isSavedModalOpen}
+          onClose={() => setIsSavedModalOpen(false)}
+          currentProgression={progression}
+          currentBpm={bpm}
+          currentPatternId={selectedPatternId}
+          onLoadProgression={handleLoadProgression}
         />
 
         {/* Footer */}
