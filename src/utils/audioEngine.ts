@@ -11,16 +11,49 @@ class AudioEngine {
 
   private activeNodes: Array<{ stop: () => void }> = [];
 
-  private initContext() {
-    if (!this.ctx) {
-      const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
-      this.ctx = new AudioCtx();
-      this.masterGain = this.ctx.createGain();
-      this.masterGain.gain.value = this.volume;
-      this.masterGain.connect(this.ctx.destination);
+  constructor() {
+    // Automatically re-initialize / resume audio when mobile browser tab becomes visible again
+    if (typeof document !== 'undefined') {
+      document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible') {
+          this.resumeAudio();
+        }
+      });
+      window.addEventListener('focus', () => {
+        this.resumeAudio();
+      });
+      // Also unlock audio context on any user touch/click interaction on mobile
+      window.addEventListener('touchstart', () => this.resumeAudio(), { passive: true, once: false });
     }
-    if (this.ctx.state === 'suspended') {
-      this.ctx.resume();
+  }
+
+  public async resumeAudio() {
+    if (!this.ctx || this.ctx.state === 'closed') {
+      this.initContext();
+    }
+    if (this.ctx && this.ctx.state === 'suspended') {
+      try {
+        await this.ctx.resume();
+      } catch {
+        // Safari/iOS may throw if not inside user gesture, will retry on next user interaction
+      }
+    }
+  }
+
+  private initContext() {
+    try {
+      if (!this.ctx || this.ctx.state === 'closed') {
+        const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+        this.ctx = new AudioCtx();
+        this.masterGain = this.ctx.createGain();
+        this.masterGain.gain.value = this.isMuted ? 0 : this.volume;
+        this.masterGain.connect(this.ctx.destination);
+      }
+      if (this.ctx.state === 'suspended') {
+        this.ctx.resume();
+      }
+    } catch (e) {
+      console.warn('AudioContext initialization deferred until user interaction', e);
     }
   }
 

@@ -34,9 +34,9 @@ export function App() {
   // Authentication status
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => isUserAuthenticated());
 
-  // Current Base Chord Configuration
+  // Current Base Chord Configuration: Bass at C3 (48), Chord at C4+ (60, 64, 67, 71)
   const [voiceCount, setVoiceCount] = useState<number>(4); // 3, 4, 5
-  const [customNotes, setCustomNotes] = useState<number[]>([48, 52, 55, 59]); // C3, E3, G3, B3
+  const [customNotes, setCustomNotes] = useState<number[]>([48, 60, 64, 67]); // Bass C3, Upper: C4, E4, G4
   const [lockedVoices, setLockedVoices] = useState<number[]>([]); // indices of locked voices
   const [maxDelta, setMaxDelta] = useState<number>(2); // ±1 or ±2 semitones
 
@@ -486,18 +486,19 @@ export function App() {
               {/* Or Select from Traditional Presets */}
               <div className="pt-1">
                 <label className="text-xs text-slate-400 mb-1.5 block font-medium">
-                  または定番プリセット和音から選ぶ (3〜5和音)
+                  または定番プリセット和音から選ぶ (ベースC3 + 和音C4以上)
                 </label>
                 <select
                   onChange={(e) => {
                     const preset = PRESET_CHORDS[Number(e.target.value)];
-                    const baseMidi = 48; // C3
-                    const notes = preset.notes.map(semitone => baseMidi + semitone);
+                    const bassMidi = 48; // C3
+                    const chordNotes = preset.notes.map(semitone => 60 + semitone); // C4+
+                    const notes = [bassMidi, ...chordNotes];
                     setCustomNotes(notes);
                     setVoiceCount(notes.length);
                     setLockedVoices([]);
                     setCurrentMorphCandidate(null);
-                    audioEngine.playChord(notes);
+                    audioEngine.playChord(notes, 2.0);
                   }}
                   className="w-full bg-slate-900 border border-white/10 rounded-xl px-3 py-2 text-sm text-slate-200 focus:border-sky-500 transition-colors"
                 >

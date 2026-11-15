@@ -13,7 +13,7 @@ export const InteractivePiano: React.FC<InteractivePianoProps> = ({
   activeNotes,
   onNoteClick,
   startMidi = 48, // C3
-  endMidi = 76,   // E5 (28 keys total)
+  endMidi = 79,   // G5 (32 keys total)
   highlightDifferences = {}
 }) => {
   const activeSet = new Set(activeNotes);

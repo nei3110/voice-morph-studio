@@ -12,29 +12,41 @@ export interface MorphFilterOptions {
 /**
  * Generate a completely random chord without requiring harmonic concordance.
  * Creates interesting sonorities, dissonances, clusters, or open voicings.
- * Range: C3 (48) to G4 (67)
+/**
+ * Generate a chord composed of:
+ * 1. A Bass note around C3 (MIDI 48 to 59)
+ * 2. An Upper Chord Voicing at C4 or above (MIDI 60 to 76)
+ * The lowest note of the upper chord is specifically an octave above the bass note (e.g. Bass=C3 -> Upper Root=C4)
+ * The remaining (voiceCount - 2) voices are randomly placed across C4 - E5 (MIDI 61 to 76)
  */
 export function generateRandomRawChord(voiceCount: number = 4): number[] {
-  const minMidi = 48; // C3
-  const maxMidi = 71; // B4
-  const notesSet = new Set<number>();
+  // Bass pitch class: 0 to 11 (C3=48 to B3=59)
+  const bassMidi = 48 + Math.floor(Math.random() * 12);
+  const upperRootMidi = bassMidi + 12; // Octave higher: C4 to B4 (60 to 71)
 
-  // Ensure spread so voices don't collapse on same note
+  const upperSet = new Set<number>();
+  upperSet.add(upperRootMidi);
+
+  const upperVoiceCount = Math.max(1, voiceCount - 1);
+  const minUpperMidi = upperRootMidi; // Keep at or above octave root
+  const maxUpperMidi = 79; // up to G5
+
   let attempts = 0;
-  while (notesSet.size < voiceCount && attempts < 100) {
+  while (upperSet.size < upperVoiceCount && attempts < 100) {
     attempts++;
-    const randomNote = Math.floor(Math.random() * (maxMidi - minMidi + 1)) + minMidi;
-    notesSet.add(randomNote);
+    const randomNote = Math.floor(Math.random() * (maxUpperMidi - minUpperMidi + 1)) + minUpperMidi;
+    upperSet.add(randomNote);
   }
 
-  // Fallback if loop hit limit
-  let fallbackNote = minMidi;
-  while (notesSet.size < voiceCount) {
-    if (!notesSet.has(fallbackNote)) notesSet.add(fallbackNote);
-    fallbackNote++;
+  // Fallback if needed
+  let fallback = minUpperMidi + 3;
+  while (upperSet.size < upperVoiceCount) {
+    if (!upperSet.has(fallback)) upperSet.add(fallback);
+    fallback++;
   }
 
-  return Array.from(notesSet).sort((a, b) => a - b);
+  const upperSorted = Array.from(upperSet).sort((a, b) => a - b);
+  return [bassMidi, ...upperSorted];
 }
 
 /**
