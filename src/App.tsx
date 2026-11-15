@@ -10,7 +10,11 @@ import {
   Dices,
   FastForward,
   RotateCcw,
-  LogOut
+  LogOut,
+  Play,
+  Square,
+  Repeat,
+  Music
 } from 'lucide-react';
 import { 
   PRESET_CHORDS, 
@@ -176,16 +180,30 @@ export function App() {
   };
 
   const handlePlayProgression = async () => {
-    if (progression.length === 0) return;
+    // If user has saved chords, play those; otherwise play the current 2-chord transition (Base -> Morph, or Base)
+    const chordsToPlay: number[][] = 
+      progression.length > 0 
+        ? progression.map(c => c.notes) 
+        : currentMorphCandidate 
+        ? [customNotes, currentMorphCandidate.notes] 
+        : [customNotes];
+
+    if (chordsToPlay.length === 0) return;
     setIsPlayingProgression(true);
 
     const pattern = ACCOMPANIMENT_PATTERNS.find(p => p.id === selectedPatternId) || ACCOMPANIMENT_PATTERNS[1];
-    const chordList = progression.map(c => c.notes);
 
-    const stopFn = await audioEngine.playProgression(chordList, bpm, pattern, isLooping, (stepIndex) => {
+    const stopFn = await audioEngine.playProgression(chordsToPlay, bpm, pattern, isLooping, (stepIndex) => {
       setActivePlayStep(stepIndex);
+      // Map to hero card highlight when playing uncommitted 2 chords
+      if (progression.length === 0) {
+        if (stepIndex === 0) setActiveAuditionIndex('base');
+        else if (stepIndex === 1) setActiveAuditionIndex('morph');
+        else setActiveAuditionIndex(null);
+      }
       if (stepIndex === -1) {
         setIsPlayingProgression(false);
+        setActiveAuditionIndex(null);
       }
     });
 
@@ -442,6 +460,87 @@ export function App() {
                 </button>
               </div>
             )}
+          </div>
+
+          {/* Top Integrated Accompaniment & Loop Control Bar (Works on both Saved & Unsaved Chords) */}
+          <div className="mt-5 pt-4 border-t border-white/10 flex flex-wrap items-center justify-between gap-3 bg-black/40 p-3.5 rounded-xl border border-white/5">
+            <div className="flex items-center gap-2">
+              <div className="w-2 h-2 rounded-full bg-teal-400 animate-pulse"></div>
+              <span className="text-xs font-bold text-white flex items-center gap-1.5 font-mono">
+                <Music size={13} className="text-teal-400" />
+                伴奏・アルペジオ再生:
+              </span>
+              <span className="text-[11px] text-slate-400 hidden sm:inline">
+                {progression.length > 0 
+                  ? `(保存済み ${progression.length} コードを伴奏中)` 
+                  : currentMorphCandidate 
+                  ? '(現在の起点 ➔ 変形コードの2和音を伴奏中)' 
+                  : '(現在の起点コードを伴奏中)'}
+              </span>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2 text-xs">
+              {/* Pattern Selector */}
+              <div className="flex items-center gap-1 bg-slate-900 px-2.5 py-1.5 rounded-lg border border-white/10">
+                <select
+                  value={selectedPatternId}
+                  onChange={(e) => setSelectedPatternId(e.target.value)}
+                  className="bg-transparent text-white font-medium text-xs focus:outline-none cursor-pointer max-w-[200px] truncate"
+                >
+                  {ACCOMPANIMENT_PATTERNS.map((p) => (
+                    <option key={p.id} value={p.id} className="bg-slate-900 text-slate-100">
+                      {p.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Loop Toggle */}
+              <button
+                onClick={() => setIsLooping(prev => !prev)}
+                className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg border text-xs font-semibold transition-all ${
+                  isLooping
+                    ? 'bg-teal-500/20 text-teal-300 border-teal-500/50 shadow-[0_0_10px_rgba(45,212,191,0.2)]'
+                    : 'bg-slate-900 text-slate-400 border-white/10 hover:text-white'
+                }`}
+                title={isLooping ? 'ループ再生ON' : 'ループ再生OFF'}
+              >
+                <Repeat size={12} className={isLooping ? 'text-teal-400' : ''} />
+                <span>ループ{isLooping ? 'ON' : 'OFF'}</span>
+              </button>
+
+              {/* BPM */}
+              <div className="flex items-center gap-1 bg-slate-900 px-2.5 py-1.5 rounded-lg border border-white/10">
+                <span className="text-slate-400 font-mono text-[11px]">BPM</span>
+                <input
+                  type="number"
+                  min="40"
+                  max="220"
+                  value={bpm}
+                  onChange={(e) => setBpm(Number(e.target.value) || 85)}
+                  className="w-10 bg-transparent text-right font-mono font-bold text-sky-400 focus:outline-none"
+                />
+              </div>
+
+              {/* Play / Stop Accompaniment */}
+              {isPlayingProgression ? (
+                <button
+                  onClick={handleStopProgression}
+                  className="flex items-center gap-1.5 px-4 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-500 text-white font-bold shadow-md transition-all"
+                >
+                  <Square size={13} fill="currentColor" />
+                  <span>伴奏停止</span>
+                </button>
+              ) : (
+                <button
+                  onClick={handlePlayProgression}
+                  className="flex items-center gap-1.5 px-4 py-1.5 rounded-lg bg-gradient-to-r from-teal-500 to-emerald-500 hover:opacity-95 text-slate-950 font-bold shadow-md transition-all"
+                >
+                  <Play size={13} fill="currentColor" />
+                  <span>伴奏ループ再生</span>
+                </button>
+              )}
+            </div>
           </div>
         </section>
 
