@@ -49,10 +49,10 @@ export const AuthGate: React.FC<AuthGateProps> = ({ onSuccess }) => {
         <div className="bg-sky-950/40 border border-sky-800/50 p-3.5 rounded-xl text-xs text-sky-300 text-left space-y-1">
           <div className="font-semibold flex items-center gap-1.5">
             <Sparkles size={13} className="text-amber-400" />
-            <span>アクセスキーが必要です</span>
+            <span>プライベートアクセス</span>
           </div>
           <p className="text-[11px] text-slate-400 leading-relaxed">
-            無制限アクセス防止のため保護されています。初期パスコードは <code className="bg-black/50 px-1.5 py-0.5 rounded text-sky-200 font-mono font-bold">morph2026</code> です。
+            このアプリはアクセスが制限されています。設定されたパスコードを入力してログインしてください。
           </p>
         </div>
 

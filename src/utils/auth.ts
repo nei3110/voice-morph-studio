@@ -3,9 +3,9 @@
 const STORAGE_KEY = 'vms_auth_token_v1';
 const PASSCODE_STORAGE_KEY = 'vms_custom_passcode_hash';
 
-// Default initial passcode hash for "morph2026"
-// SHA-256("morph2026") = 7a827464e52627eec1287c2fbfe37494f4c2643a60a7e671b7b0553bb3feeb8f
-const DEFAULT_HASH = '7a827464e52627eec1287c2fbfe37494f4c2643a60a7e671b7b0553bb3feeb8f';
+// Default initial passcode hash for "bo"
+// SHA-256("bo") = 3d099d0f13df9d0bb4427a6ce99d61b988861761e286d6e34b17d6371b46b13f
+const DEFAULT_HASH = '3d099d0f13df9d0bb4427a6ce99d61b988861761e286d6e34b17d6371b46b13f';
 
 async function sha256(message: string): Promise<string> {
   const msgUint8 = new TextEncoder().encode(message);
