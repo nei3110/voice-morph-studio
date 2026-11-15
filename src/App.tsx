@@ -9,7 +9,8 @@ import {
   PlusCircle,
   Dices,
   FastForward,
-  RotateCcw
+  RotateCcw,
+  LogOut
 } from 'lucide-react';
 import { 
   PRESET_CHORDS, 
@@ -23,11 +24,16 @@ import {
   sampleRandomMorph 
 } from './utils/morphEngine';
 import { audioEngine } from './utils/audioEngine';
+import { isUserAuthenticated, logout } from './utils/auth';
+import { AuthGate } from './components/AuthGate';
 import { InteractivePiano } from './components/InteractivePiano';
 import { MorphCandidateCard } from './components/MorphCandidateCard';
 import { ProgressionStrip, type SavedChord } from './components/ProgressionStrip';
 
 export function App() {
+  // Authentication status
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => isUserAuthenticated());
+
   // Current Base Chord Configuration
   const [voiceCount, setVoiceCount] = useState<number>(4); // 3, 4, 5
   const [customNotes, setCustomNotes] = useState<number[]>([48, 52, 55, 59]); // C3, E3, G3, B3
@@ -186,6 +192,15 @@ export function App() {
     setIsMuted(muted);
   };
 
+  const handleLogout = () => {
+    logout();
+    setIsAuthenticated(false);
+  };
+
+  if (!isAuthenticated) {
+    return <AuthGate onSuccess={() => setIsAuthenticated(true)} />;
+  }
+
   return (
     <div className="min-h-screen text-slate-100 p-4 md:p-8 flex flex-col items-center">
       <div className="w-full max-w-6xl space-y-6">
@@ -209,13 +224,22 @@ export function App() {
             </div>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
             <button
               onClick={handleToggleMute}
               className="p-2.5 rounded-xl bg-slate-900 border border-white/10 text-slate-400 hover:text-white transition-colors"
               title={isMuted ? 'ミュート解除' : 'ミュート'}
             >
               {isMuted ? <VolumeX size={18} className="text-rose-400" /> : <Volume2 size={18} />}
+            </button>
+
+            <button
+              onClick={handleLogout}
+              className="flex items-center gap-1.5 px-3 py-2.5 rounded-xl bg-slate-900 border border-white/10 text-slate-400 hover:text-rose-400 hover:border-rose-500/30 text-xs transition-colors"
+              title="ログアウトして画面をロック"
+            >
+              <LogOut size={15} />
+              <span className="hidden sm:inline">ロック</span>
             </button>
           </div>
         </header>
