@@ -29,6 +29,7 @@ import { AuthGate } from './components/AuthGate';
 import { InteractivePiano } from './components/InteractivePiano';
 import { MorphCandidateCard } from './components/MorphCandidateCard';
 import { ProgressionStrip, type SavedChord } from './components/ProgressionStrip';
+import { ACCOMPANIMENT_PATTERNS } from './utils/accompanimentPatterns';
 
 export function App() {
   // Authentication status
@@ -49,7 +50,9 @@ export function App() {
   const [progression, setProgression] = useState<SavedChord[]>([]);
   const [activePlayStep, setActivePlayStep] = useState<number>(-1);
   const [isPlayingProgression, setIsPlayingProgression] = useState<boolean>(false);
-  const [bpm, setBpm] = useState<number>(75);
+  const [isLooping, setIsLooping] = useState<boolean>(true);
+  const [selectedPatternId, setSelectedPatternId] = useState<string>('pop_ballad_arp');
+  const [bpm, setBpm] = useState<number>(85);
   const [isMuted, setIsMuted] = useState<boolean>(false);
 
   // Stop playback reference
@@ -105,19 +108,21 @@ export function App() {
     setIsTransitionPlaying(false);
   };
 
-  // Accept Morph: Make it the new base or adopt it into progression
+  // Accept Morph: Make it the new base so user can explore 2nd -> 3rd chord
   const handleAdoptMorphAsBase = () => {
     if (!currentMorphCandidate) return;
     setCustomNotes([...currentMorphCandidate.notes]);
     setLockedVoices([]);
     setCurrentMorphCandidate(null);
-    audioEngine.playChord(currentMorphCandidate.notes);
+    audioEngine.playChord(currentMorphCandidate.notes, 2.0);
   };
 
+  // Add Morph to progression and seamlessly set it as the new Base to explore the 3rd, 4th... chords
   const handleAddMorphToProgression = () => {
     if (!currentMorphCandidate) return;
-    // If progression is empty, also add the base chord first for context
     const itemsToAdd: SavedChord[] = [];
+
+    // If progression is empty, register the starting base chord as Chord 1
     if (progression.length === 0) {
       itemsToAdd.push({
         id: `saved-${Date.now()}-base`,
@@ -126,6 +131,8 @@ export function App() {
         timestamp: Date.now(),
       });
     }
+
+    // Append the newly formed morph chord (e.g. Chord 2, Chord 3...)
     itemsToAdd.push({
       id: `saved-${Date.now()}-morph`,
       notes: [...currentMorphCandidate.notes],
@@ -134,7 +141,12 @@ export function App() {
     });
 
     setProgression(prev => [...prev, ...itemsToAdd]);
-    audioEngine.playChord(currentMorphCandidate.notes);
+
+    // Automatically transition base to this morph chord so the user is immediately ready
+    // to generate the 3rd, 4th chord from this new point!
+    setCustomNotes([...currentMorphCandidate.notes]);
+    setCurrentMorphCandidate(null);
+    audioEngine.playChord(itemsToAdd[itemsToAdd.length - 1].notes, 2.0);
   };
 
   const currentChordName = useMemo(() => {
@@ -167,8 +179,10 @@ export function App() {
     if (progression.length === 0) return;
     setIsPlayingProgression(true);
 
+    const pattern = ACCOMPANIMENT_PATTERNS.find(p => p.id === selectedPatternId) || ACCOMPANIMENT_PATTERNS[1];
     const chordList = progression.map(c => c.notes);
-    const stopFn = await audioEngine.playProgression(chordList, bpm, (stepIndex) => {
+
+    const stopFn = await audioEngine.playProgression(chordList, bpm, pattern, isLooping, (stepIndex) => {
       setActivePlayStep(stepIndex);
       if (stepIndex === -1) {
         setIsPlayingProgression(false);
@@ -672,6 +686,8 @@ export function App() {
           progression={progression}
           activeStep={activePlayStep}
           isPlaying={isPlayingProgression}
+          isLooping={isLooping}
+          onToggleLoop={() => setIsLooping(prev => !prev)}
           onPlay={handlePlayProgression}
           onStop={handleStopProgression}
           onRemoveChord={(idx) => {
@@ -680,11 +696,13 @@ export function App() {
           onSelectChord={(chord) => {
             setCustomNotes([...chord.notes]);
             setCurrentMorphCandidate(null);
-            audioEngine.playChord(chord.notes);
+            audioEngine.playChord(chord.notes, 2.0);
           }}
           onClear={() => setProgression([])}
           bpm={bpm}
           onBpmChange={setBpm}
+          selectedPatternId={selectedPatternId}
+          onPatternChange={setSelectedPatternId}
         />
 
         {/* Footer */}

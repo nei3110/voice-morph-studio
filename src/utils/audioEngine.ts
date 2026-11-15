@@ -177,19 +177,119 @@ class AudioEngine {
     });
   }
 
-  // Play progression sequentially
-  public async playProgression(chords: number[][], tempoBpm: number = 72, onStep?: (index: number) => void): Promise<() => void> {
+  // Play an individual note or subset of voices with custom velocity and duration
+  public playVoiceNote(midi: number, durationSec: number = 0.5, velocity: number = 0.8) {
+    this.initContext();
+    if (!this.ctx || !this.masterGain) return;
+
+    const now = this.ctx.currentTime;
+    const freq = midiToFreq(midi);
+
+    const osc1 = this.ctx.createOscillator();
+    const osc2 = this.ctx.createOscillator();
+    const voiceGain = this.ctx.createGain();
+    const filter = this.ctx.createBiquadFilter();
+
+    osc1.type = 'sine';
+    osc1.frequency.setValueAtTime(freq, now);
+
+    osc2.type = 'triangle';
+    osc2.frequency.setValueAtTime(freq * 1.002, now);
+
+    filter.type = 'lowpass';
+    filter.frequency.setValueAtTime(Math.min(3200, freq * 4), now);
+    filter.frequency.exponentialRampToValueAtTime(800, now + durationSec);
+
+    const targetGain = 0.22 * velocity;
+    voiceGain.gain.setValueAtTime(0.0001, now);
+    voiceGain.gain.linearRampToValueAtTime(targetGain, now + 0.02);
+    voiceGain.gain.setValueAtTime(targetGain * 0.8, now + Math.max(0.03, durationSec * 0.7));
+    voiceGain.gain.exponentialRampToValueAtTime(0.0001, now + durationSec);
+
+    osc1.connect(filter);
+    osc2.connect(filter);
+    filter.connect(voiceGain);
+    voiceGain.connect(this.masterGain);
+
+    osc1.start(now);
+    osc2.start(now);
+
+    const stopTime = now + durationSec + 0.05;
+    osc1.stop(stopTime);
+    osc2.stop(stopTime);
+
+    this.activeNodes.push({
+      stop: () => {
+        try {
+          voiceGain.gain.cancelScheduledValues(this.ctx?.currentTime || 0);
+          voiceGain.gain.linearRampToValueAtTime(0.0001, (this.ctx?.currentTime || 0) + 0.04);
+          setTimeout(() => {
+            try { osc1.stop(); osc2.stop(); } catch(e){}
+          }, 50);
+        } catch(e){}
+      }
+    });
+  }
+
+  // Play progression sequentially or continuously looped with accompaniment pattern
+  public async playProgression(
+    chords: number[][],
+    tempoBpm: number = 85,
+    pattern: { beatsPerBar: number; steps: Array<{ beatFraction: number; voiceIndices: number[] | 'all' | 'upper' | 'bass'; velocity: number; durationFraction: number }> },
+    loop: boolean = true,
+    onStep?: (index: number) => void
+  ): Promise<() => void> {
     this.initContext();
     let isCancelled = false;
-    const stepDurationSec = (60 / tempoBpm) * 2; // 2 beats per chord
+
+    // 1 bar = 4 beats
+    const secondsPerBeat = 60 / tempoBpm;
+    const barDurationSec = secondsPerBeat * (pattern.beatsPerBar || 4);
+
+    const resolveVoices = (chord: number[], selector: number[] | 'all' | 'upper' | 'bass'): number[] => {
+      if (chord.length === 0) return [];
+      if (selector === 'all') return chord;
+      if (selector === 'bass') return [chord[0]];
+      if (selector === 'upper') return chord.slice(1);
+      const res: number[] = [];
+      selector.forEach(idx => {
+        if (idx === -1) res.push(chord[chord.length - 1]);
+        else if (idx >= 0 && idx < chord.length) res.push(chord[idx]);
+        else res.push(chord[chord.length - 1]);
+      });
+      return Array.from(new Set(res));
+    };
 
     const run = async () => {
-      for (let i = 0; i < chords.length; i++) {
-        if (isCancelled) break;
-        if (onStep) onStep(i);
-        this.playChord(chords[i], stepDurationSec * 0.95);
-        await new Promise(res => setTimeout(res, stepDurationSec * 1000));
-      }
+      do {
+        for (let i = 0; i < chords.length; i++) {
+          if (isCancelled) break;
+          if (onStep) onStep(i);
+
+          const currentChord = chords[i];
+          const barStartTime = Date.now();
+
+          // Schedule or trigger pattern steps inside this bar
+          pattern.steps.forEach(step => {
+            const delayMs = step.beatFraction * barDurationSec * 1000;
+            const noteDurationSec = Math.max(0.15, step.durationFraction * barDurationSec);
+            const notesToPlay = resolveVoices(currentChord, step.voiceIndices);
+
+            setTimeout(() => {
+              if (isCancelled) return;
+              notesToPlay.forEach(n => {
+                this.playVoiceNote(n, noteDurationSec, step.velocity);
+              });
+            }, delayMs);
+          });
+
+          // Wait until bar completes
+          const elapsed = Date.now() - barStartTime;
+          const waitMs = Math.max(0, barDurationSec * 1000 - elapsed);
+          await new Promise(res => setTimeout(res, waitMs));
+        }
+      } while (loop && !isCancelled && chords.length > 0);
+
       if (!isCancelled && onStep) {
         onStep(-1);
       }
