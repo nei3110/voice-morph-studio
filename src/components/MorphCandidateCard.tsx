@@ -99,22 +99,22 @@ export const MorphCandidateCard: React.FC<MorphCandidateCardProps> = ({
       </div>
 
       {/* Action Buttons */}
-      <div className="mt-4 flex items-center gap-2 pt-2 border-t border-white/5">
+      <div className="mt-4 flex flex-wrap items-center gap-2 pt-2 border-t border-white/5">
         <button
           onClick={() => onAddToProgression(candidate)}
-          className="flex-1 flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-lg bg-teal-500/20 hover:bg-teal-500/30 text-teal-300 hover:text-teal-200 border border-teal-500/30 text-xs font-semibold transition-all"
+          className="flex-1 min-h-[44px] flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-xl bg-teal-500/20 hover:bg-teal-500/30 text-teal-300 hover:text-teal-200 border border-teal-500/30 text-xs font-bold transition-all active:scale-[0.98]"
         >
-          <Plus size={13} />
+          <Plus size={15} />
           <span>進行に追加</span>
         </button>
 
         <button
           onClick={() => onSelectAsBase(candidate)}
           title="このコードを次の起点にしてさらにモーフィングを探す"
-          className="flex items-center justify-center gap-1 py-1.5 px-2.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-medium border border-white/10 transition-colors"
+          className="min-h-[44px] flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold border border-white/10 transition-colors active:scale-[0.98]"
         >
-          <Sparkles size={12} className="text-amber-400" />
-          <span>次の起点にする</span>
+          <Sparkles size={14} className="text-amber-400" />
+          <span>次の起点へ</span>
         </button>
       </div>
     </div>

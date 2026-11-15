@@ -79,14 +79,14 @@ export const ProgressionStrip: React.FC<ProgressionStripProps> = ({
           </div>
         </div>
 
-        <div className="flex flex-wrap items-center gap-3 text-xs">
+        <div className="flex flex-wrap items-center gap-2 sm:gap-3 text-xs">
           {/* Accompaniment Pattern Selector (8 Types) */}
-          <div className="flex items-center gap-1.5 bg-slate-900/90 px-3 py-1.5 rounded-xl border border-white/10">
-            <Music size={14} className="text-teal-400" />
+          <div className="flex-1 sm:flex-initial flex items-center gap-1.5 min-h-[44px] bg-slate-900/90 px-3 py-2 rounded-xl border border-white/10">
+            <Music size={15} className="text-teal-400 shrink-0" />
             <select
               value={selectedPatternId}
               onChange={(e) => onPatternChange(e.target.value)}
-              className="bg-transparent text-white font-medium text-xs focus:outline-none cursor-pointer"
+              className="w-full bg-transparent text-white font-medium text-xs sm:text-sm focus:outline-none cursor-pointer"
             >
               {ACCOMPANIMENT_PATTERNS.map((p) => (
                 <option key={p.id} value={p.id} className="bg-slate-900 text-slate-100">
@@ -99,27 +99,27 @@ export const ProgressionStrip: React.FC<ProgressionStripProps> = ({
           {/* Loop Toggle */}
           <button
             onClick={onToggleLoop}
-            className={`flex items-center gap-1.5 px-3 py-2 rounded-xl border text-xs font-semibold transition-all ${
+            className={`min-h-[44px] flex items-center gap-1.5 px-3.5 py-2 rounded-xl border text-xs sm:text-sm font-semibold transition-all active:scale-[0.98] ${
               isLooping
-                ? 'bg-teal-500/20 text-teal-300 border-teal-500/50 shadow-[0_0_12px_rgba(45,212,191,0.2)]'
+                ? 'bg-teal-500/25 text-teal-300 border-teal-500/60 shadow-[0_0_12px_rgba(45,212,191,0.25)]'
                 : 'bg-slate-900 text-slate-400 border-white/10 hover:text-white'
             }`}
             title={isLooping ? 'ループ再生ON (連続伴奏)' : 'ループ再生OFF (1回のみ)'}
           >
-            <Repeat size={13} className={isLooping ? 'text-teal-400' : ''} />
+            <Repeat size={14} className={isLooping ? 'text-teal-400' : ''} />
             <span>ループ{isLooping ? 'ON' : 'OFF'}</span>
           </button>
 
           {/* BPM */}
-          <div className="flex items-center gap-1.5 bg-slate-900/90 px-3 py-1.5 rounded-xl border border-white/10">
-            <span className="text-slate-400 font-mono">BPM</span>
+          <div className="flex items-center min-h-[44px] bg-slate-900/90 px-3 py-1.5 rounded-xl border border-white/10">
+            <span className="text-slate-400 font-mono text-xs mr-1">BPM</span>
             <input
               type="number"
               min="40"
               max="220"
               value={bpm}
               onChange={(e) => onBpmChange(Number(e.target.value) || 85)}
-              className="w-12 bg-transparent text-right font-mono font-bold text-sky-400 focus:outline-none"
+              className="w-12 bg-transparent text-right font-mono font-bold text-sky-400 text-sm focus:outline-none"
             />
           </div>
 
@@ -127,18 +127,18 @@ export const ProgressionStrip: React.FC<ProgressionStripProps> = ({
           {isPlaying ? (
             <button
               onClick={onStop}
-              className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-bold shadow-md transition-all"
+              className="min-h-[44px] flex-1 sm:flex-initial flex items-center justify-center gap-1.5 px-5 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs sm:text-sm shadow-md transition-all active:scale-[0.98]"
             >
-              <Square size={13} fill="currentColor" />
+              <Square size={14} fill="currentColor" />
               <span>停止</span>
             </button>
           ) : (
             <button
               onClick={onPlay}
               disabled={progression.length === 0}
-              className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:opacity-95 disabled:opacity-40 text-slate-950 font-bold shadow-md transition-all"
+              className="min-h-[44px] flex-1 sm:flex-initial flex items-center justify-center gap-1.5 px-5 py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:opacity-95 disabled:opacity-40 text-slate-950 font-bold text-xs sm:text-sm shadow-md transition-all active:scale-[0.98]"
             >
-              <Play size={13} fill="currentColor" />
+              <Play size={14} fill="currentColor" />
               <span>伴奏を再生</span>
             </button>
           )}
@@ -148,10 +148,10 @@ export const ProgressionStrip: React.FC<ProgressionStripProps> = ({
             onClick={handleExportMidi}
             disabled={progression.length === 0}
             title="DAWにドラッグできるMIDIファイルとして書き出し"
-            className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 disabled:opacity-40 text-slate-200 border border-white/10 transition-all"
+            className="min-h-[44px] flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 disabled:opacity-40 text-slate-200 border border-white/10 text-xs sm:text-sm font-semibold transition-all active:scale-[0.98]"
           >
-            <Download size={13} />
-            <span>MIDI書き出し</span>
+            <Download size={14} />
+            <span>MIDI</span>
           </button>
 
           {/* Clear */}
@@ -159,9 +159,9 @@ export const ProgressionStrip: React.FC<ProgressionStripProps> = ({
             <button
               onClick={onClear}
               title="進行をクリア"
-              className="p-2 rounded-xl text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 transition-colors"
+              className="min-h-[44px] min-w-[44px] flex items-center justify-center p-2 rounded-xl text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 border border-transparent hover:border-rose-500/30 transition-colors"
             >
-              <Trash2 size={15} />
+              <Trash2 size={16} />
             </button>
           )}
         </div>

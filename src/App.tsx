@@ -277,30 +277,30 @@ export function App() {
         </header>
 
         {/* HERO FEATURE: Instant 2-Chord Random Transition Player */}
-        <section className="glass-panel p-6 border-2 border-sky-500/30 shadow-[0_0_35px_rgba(56,189,248,0.15)] bg-gradient-to-b from-slate-900/90 to-slate-950/90">
-          <div className="flex flex-wrap items-center justify-between gap-4 mb-5">
+        <section className="glass-panel p-4 sm:p-6 border-2 border-sky-500/30 shadow-[0_0_35px_rgba(56,189,248,0.15)] bg-gradient-to-b from-slate-900/90 to-slate-950/90">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
             <div>
               <span className="text-xs font-mono font-semibold tracking-wider text-sky-400 uppercase flex items-center gap-1.5">
                 <FastForward size={14} />
                 Instant Voice Transition (起点コード → ランダム変形コードを連続再生)
               </span>
-              <p className="text-xs text-slate-400 mt-1">
-                ボタンを押すと、各構成音ごとに <strong>-2〜+2半音</strong> をランダム抽選して即座に2つのコードを続けて鳴らします。
+              <p className="text-xs text-slate-400 mt-0.5">
+                各構成音ごとに <strong>-2〜+2半音</strong> をランダム抽選して2つのコードを続けて鳴らします。
               </p>
             </div>
 
             {/* Scope / Delta Range Selector */}
-            <div className="flex items-center gap-3 text-xs bg-black/40 px-3 py-1.5 rounded-xl border border-white/10">
-              <span className="text-slate-400">移動範囲:</span>
-              <div className="flex gap-1">
+            <div className="flex items-center gap-2 text-xs bg-black/40 px-3 py-2 rounded-xl border border-white/10 self-start sm:self-auto">
+              <span className="text-slate-400 font-medium">移動範囲:</span>
+              <div className="flex gap-1.5">
                 {[1, 2].map((delta) => (
                   <button
                     key={delta}
                     onClick={() => setMaxDelta(delta)}
-                    className={`px-2.5 py-1 rounded-md font-mono font-bold transition-all ${
+                    className={`min-h-[36px] px-3 py-1 rounded-lg font-mono font-bold text-xs transition-all ${
                       maxDelta === delta
                         ? 'bg-sky-500 text-slate-950 shadow-md'
-                        : 'text-slate-400 hover:text-white'
+                        : 'text-slate-300 hover:text-white bg-slate-800/80'
                     }`}
                   >
                     ±{delta}半音
@@ -311,12 +311,12 @@ export function App() {
           </div>
 
           {/* Dual Chord Stages (Base Chord -> Morph Result) */}
-          <div className="grid grid-cols-1 md:grid-cols-11 gap-4 items-center">
+          <div className="grid grid-cols-1 md:grid-cols-11 gap-3 sm:gap-4 items-center">
             
             {/* 1. Base Chord Card (Clickable on tap to play independently) */}
             <div 
               onClick={() => audioEngine.playChord(customNotes, 2.0)}
-              className={`md:col-span-5 p-4 rounded-2xl border transition-all duration-300 cursor-pointer select-none group ${
+              className={`md:col-span-5 p-4 sm:p-5 rounded-2xl border transition-all duration-300 cursor-pointer select-none group min-h-[110px] ${
                 activeAuditionIndex === 'base'
                   ? 'bg-sky-950/70 border-sky-400 ring-2 ring-sky-400/50 shadow-lg shadow-sky-950'
                   : 'bg-slate-900/80 hover:bg-slate-850 border-white/10 hover:border-sky-500/50 hover:shadow-md'
@@ -324,20 +324,20 @@ export function App() {
               title="タップするとこのコード単体で2秒鳴ります"
             >
               <div className="flex justify-between items-center text-xs text-slate-400 mb-1">
-                <span className="font-mono flex items-center gap-1.5">
-                  {activeAuditionIndex === 'base' && <span className="w-2 h-2 rounded-full bg-sky-400 animate-ping"></span>}
+                <span className="font-mono flex items-center gap-1.5 font-bold">
+                  {activeAuditionIndex === 'base' && <span className="w-2.5 h-2.5 rounded-full bg-sky-400 animate-ping"></span>}
                   ① 起点コード (Base)
                 </span>
-                <span className="text-[11px] font-mono text-sky-400/80 group-hover:text-sky-300 flex items-center gap-1">
-                  <Volume2 size={12} /> タップで再生
+                <span className="text-xs font-mono text-sky-400 group-hover:text-sky-300 flex items-center gap-1 bg-sky-950/60 px-2 py-0.5 rounded-md border border-sky-800/40 font-semibold">
+                  <Volume2 size={13} /> タップで再生
                 </span>
               </div>
-              <div className="text-2xl font-black text-white tracking-tight flex items-baseline gap-2">
+              <div className="text-2xl sm:text-3xl font-black text-white tracking-tight flex items-baseline gap-2 mt-1">
                 {currentChordName}
               </div>
-              <div className="flex flex-wrap gap-1.5 mt-2">
+              <div className="flex flex-wrap gap-1.5 mt-2.5">
                 {customNotes.map((m, i) => (
-                  <span key={i} className="px-2 py-0.5 rounded-md bg-black/50 text-sky-300 font-mono text-xs border border-white/5 font-semibold">
+                  <span key={i} className="px-2.5 py-1 rounded-md bg-black/60 text-sky-300 font-mono text-xs border border-white/10 font-bold">
                     {midiToNote(m).name}
                   </span>
                 ))}
@@ -345,7 +345,7 @@ export function App() {
             </div>
 
             {/* Transition Arrow / Indicator */}
-            <div className="md:col-span-1 flex flex-col items-center justify-center text-slate-500">
+            <div className="md:col-span-1 flex flex-col items-center justify-center text-slate-500 py-1 md:py-0">
               <FastForward size={24} className={isTransitionPlaying ? 'text-teal-400 animate-pulse' : 'text-slate-600'} />
             </div>
 
@@ -356,7 +356,7 @@ export function App() {
                   audioEngine.playChord(currentMorphCandidate.notes, 2.0);
                 }
               }}
-              className={`md:col-span-5 p-4 rounded-2xl border transition-all duration-300 select-none group ${
+              className={`md:col-span-5 p-4 sm:p-5 rounded-2xl border transition-all duration-300 select-none group min-h-[110px] ${
                 currentMorphCandidate ? 'cursor-pointer' : ''
               } ${
                 activeAuditionIndex === 'morph'
@@ -368,61 +368,61 @@ export function App() {
               title={currentMorphCandidate ? "タップするとこのコード単体で2秒鳴ります" : ""}
             >
               <div className="flex justify-between items-center text-xs text-slate-400 mb-1">
-                <span className="font-mono flex items-center gap-1.5">
-                  {activeAuditionIndex === 'morph' && <span className="w-2 h-2 rounded-full bg-teal-400 animate-ping"></span>}
+                <span className="font-mono flex items-center gap-1.5 font-bold">
+                  {activeAuditionIndex === 'morph' && <span className="w-2.5 h-2.5 rounded-full bg-teal-400 animate-ping"></span>}
                   ② 遷移先 (Random Morph)
                 </span>
                 {currentMorphCandidate ? (
-                  <span className="text-[11px] font-mono text-teal-400/80 group-hover:text-teal-300 flex items-center gap-1">
-                    <Volume2 size={12} /> タップで再生
+                  <span className="text-xs font-mono text-teal-400 group-hover:text-teal-300 flex items-center gap-1 bg-teal-950/60 px-2 py-0.5 rounded-md border border-teal-800/40 font-semibold">
+                    <Volume2 size={13} /> タップで再生
                   </span>
                 ) : (
-                  <span className="text-[10px] text-slate-500 font-mono">未生成</span>
+                  <span className="text-xs text-slate-500 font-mono">未生成</span>
                 )}
               </div>
               
               {currentMorphCandidate ? (
                 <>
-                  <div className="text-2xl font-black text-white tracking-tight">
+                  <div className="text-2xl sm:text-3xl font-black text-white tracking-tight mt-1">
                     {currentMorphCandidate.nameEstimate}
                   </div>
-                  <div className="flex flex-wrap gap-1.5 mt-2">
+                  <div className="flex flex-wrap gap-1.5 mt-2.5">
                     {currentMorphCandidate.notes.map((m, i) => {
                       const shift = currentMorphCandidate.shifts[i];
                       const shiftText = shift > 0 ? `+${shift}` : `${shift}`;
                       return (
-                        <span key={i} className={`px-2 py-0.5 rounded-md font-mono text-xs border flex items-center gap-1 font-semibold ${
+                        <span key={i} className={`px-2.5 py-1 rounded-md font-mono text-xs border flex items-center gap-1 font-bold ${
                           shift !== 0
                             ? shift > 0
-                              ? 'bg-emerald-950/80 text-emerald-300 border-emerald-700/60'
-                              : 'bg-rose-950/80 text-rose-300 border-rose-700/60'
-                            : 'bg-black/50 text-slate-300 border-white/5'
+                              ? 'bg-emerald-950 text-emerald-300 border-emerald-600'
+                              : 'bg-rose-950 text-rose-300 border-rose-600'
+                            : 'bg-black/60 text-slate-300 border-white/10'
                         }`}>
                           <span>{midiToNote(m).name}</span>
-                          <span className="text-[10px] opacity-75">({shiftText})</span>
+                          <span className="text-[11px] opacity-80">({shiftText})</span>
                         </span>
                       );
                     })}
                   </div>
                 </>
               ) : (
-                <div className="py-3 text-center text-xs text-slate-500">
+                <div className="py-4 text-center text-xs text-slate-500">
                   下のボタンを押すと、この位置にランダム変形コードが生成されて続けて鳴ります
                 </div>
               )}
             </div>
           </div>
 
-          {/* Trigger Buttons */}
-          <div className="flex flex-wrap items-center justify-between gap-3 mt-6 pt-4 border-t border-white/10">
-            <div className="flex items-center gap-3">
+          {/* Trigger Buttons (Big Touch Targets) */}
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 mt-5 pt-4 border-t border-white/10">
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
               {/* PRIMARY ACTION: Morph & Play */}
               <button
                 onClick={handleRandomMorphAndPlay}
                 disabled={isTransitionPlaying}
-                className="flex items-center gap-2.5 px-6 py-3 rounded-xl bg-gradient-to-r from-sky-500 via-teal-500 to-emerald-500 hover:opacity-95 disabled:opacity-50 text-slate-950 font-bold text-sm shadow-lg shadow-sky-500/25 transition-all transform active:scale-[0.98]"
+                className="min-h-[50px] w-full sm:w-auto flex items-center justify-center gap-2.5 px-6 py-3.5 rounded-xl bg-gradient-to-r from-sky-500 via-teal-500 to-emerald-500 hover:opacity-95 disabled:opacity-50 text-slate-950 font-black text-sm sm:text-base shadow-lg shadow-sky-500/25 transition-all transform active:scale-[0.98]"
               >
-                <Dices size={18} />
+                <Dices size={20} />
                 <span>ランダム変形して連続再生！ (±{maxDelta}半音)</span>
               </button>
 
@@ -430,10 +430,10 @@ export function App() {
                 <button
                   onClick={handleReplayTransition}
                   disabled={isTransitionPlaying}
-                  className="flex items-center gap-1.5 px-3.5 py-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold border border-white/10 transition-colors"
+                  className="min-h-[46px] flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-100 text-sm font-semibold border border-white/10 transition-colors active:scale-[0.98]"
                   title="もう一度この2つのコードの繋がりを聴く"
                 >
-                  <RotateCcw size={14} />
+                  <RotateCcw size={16} />
                   <span>もう一度聴く</span>
                 </button>
               )}
@@ -441,51 +441,51 @@ export function App() {
 
             {/* Save / Adopt buttons when a candidate is generated */}
             {currentMorphCandidate && (
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2.5 mt-1 sm:mt-0">
                 <button
                   onClick={handleAddMorphToProgression}
-                  className="flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl bg-teal-500/20 hover:bg-teal-500/30 text-teal-300 border border-teal-500/40 text-xs font-bold transition-all"
+                  className="min-h-[46px] flex-1 sm:flex-initial flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl bg-teal-500/25 hover:bg-teal-500/40 text-teal-200 border border-teal-500/50 text-sm font-bold transition-all active:scale-[0.98]"
                 >
-                  <PlusCircle size={15} />
+                  <PlusCircle size={16} />
                   <span>進行に保存</span>
                 </button>
 
                 <button
                   onClick={handleAdoptMorphAsBase}
-                  className="flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl bg-sky-500/20 hover:bg-sky-500/30 text-sky-300 border border-sky-500/40 text-xs font-bold transition-all"
+                  className="min-h-[46px] flex-1 sm:flex-initial flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl bg-sky-500/25 hover:bg-sky-500/40 text-sky-200 border border-sky-500/50 text-sm font-bold transition-all active:scale-[0.98]"
                   title="この響きを次の起点にしてさらに旅を続ける"
                 >
-                  <Sparkles size={14} className="text-amber-400" />
+                  <Sparkles size={16} className="text-amber-400" />
                   <span>次の起点にする</span>
                 </button>
               </div>
             )}
           </div>
 
-          {/* Top Integrated Accompaniment & Loop Control Bar (Works on both Saved & Unsaved Chords) */}
-          <div className="mt-5 pt-4 border-t border-white/10 flex flex-wrap items-center justify-between gap-3 bg-black/40 p-3.5 rounded-xl border border-white/5">
+          {/* Top Integrated Accompaniment & Loop Control Bar (Responsive & Finger-friendly) */}
+          <div className="mt-5 pt-4 border-t border-white/10 flex flex-col md:flex-row md:items-center justify-between gap-3 bg-black/40 p-4 rounded-xl border border-white/5">
             <div className="flex items-center gap-2">
-              <div className="w-2 h-2 rounded-full bg-teal-400 animate-pulse"></div>
+              <div className="w-2.5 h-2.5 rounded-full bg-teal-400 animate-pulse"></div>
               <span className="text-xs font-bold text-white flex items-center gap-1.5 font-mono">
-                <Music size={13} className="text-teal-400" />
+                <Music size={14} className="text-teal-400" />
                 伴奏・アルペジオ再生:
               </span>
-              <span className="text-[11px] text-slate-400 hidden sm:inline">
+              <span className="text-[11px] text-slate-400 truncate">
                 {progression.length > 0 
-                  ? `(保存済み ${progression.length} コードを伴奏中)` 
+                  ? `(保存済み ${progression.length} コード)` 
                   : currentMorphCandidate 
-                  ? '(現在の起点 ➔ 変形コードの2和音を伴奏中)' 
-                  : '(現在の起点コードを伴奏中)'}
+                  ? '(探索中 2コード)' 
+                  : '(起点コード)'}
               </span>
             </div>
 
-            <div className="flex flex-wrap items-center gap-2 text-xs">
+            <div className="flex flex-wrap items-center gap-2">
               {/* Pattern Selector */}
-              <div className="flex items-center gap-1 bg-slate-900 px-2.5 py-1.5 rounded-lg border border-white/10">
+              <div className="flex-1 sm:flex-initial flex items-center min-h-[42px] bg-slate-900 px-3 py-2 rounded-xl border border-white/10">
                 <select
                   value={selectedPatternId}
                   onChange={(e) => setSelectedPatternId(e.target.value)}
-                  className="bg-transparent text-white font-medium text-xs focus:outline-none cursor-pointer max-w-[200px] truncate"
+                  className="w-full bg-transparent text-white font-medium text-xs sm:text-sm focus:outline-none cursor-pointer"
                 >
                   {ACCOMPANIMENT_PATTERNS.map((p) => (
                     <option key={p.id} value={p.id} className="bg-slate-900 text-slate-100">
@@ -498,27 +498,27 @@ export function App() {
               {/* Loop Toggle */}
               <button
                 onClick={() => setIsLooping(prev => !prev)}
-                className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg border text-xs font-semibold transition-all ${
+                className={`min-h-[42px] px-3.5 py-2 rounded-xl border text-xs sm:text-sm font-semibold transition-all flex items-center gap-1.5 active:scale-[0.98] ${
                   isLooping
-                    ? 'bg-teal-500/20 text-teal-300 border-teal-500/50 shadow-[0_0_10px_rgba(45,212,191,0.2)]'
+                    ? 'bg-teal-500/25 text-teal-300 border-teal-500/60 shadow-[0_0_12px_rgba(45,212,191,0.25)]'
                     : 'bg-slate-900 text-slate-400 border-white/10 hover:text-white'
                 }`}
                 title={isLooping ? 'ループ再生ON' : 'ループ再生OFF'}
               >
-                <Repeat size={12} className={isLooping ? 'text-teal-400' : ''} />
+                <Repeat size={14} className={isLooping ? 'text-teal-400' : ''} />
                 <span>ループ{isLooping ? 'ON' : 'OFF'}</span>
               </button>
 
               {/* BPM */}
-              <div className="flex items-center gap-1 bg-slate-900 px-2.5 py-1.5 rounded-lg border border-white/10">
-                <span className="text-slate-400 font-mono text-[11px]">BPM</span>
+              <div className="flex items-center min-h-[42px] bg-slate-900 px-3 py-1.5 rounded-xl border border-white/10">
+                <span className="text-slate-400 font-mono text-xs mr-1">BPM</span>
                 <input
                   type="number"
                   min="40"
                   max="220"
                   value={bpm}
                   onChange={(e) => setBpm(Number(e.target.value) || 85)}
-                  className="w-10 bg-transparent text-right font-mono font-bold text-sky-400 focus:outline-none"
+                  className="w-12 bg-transparent text-right font-mono font-bold text-sky-400 text-sm focus:outline-none"
                 />
               </div>
 
@@ -526,17 +526,17 @@ export function App() {
               {isPlayingProgression ? (
                 <button
                   onClick={handleStopProgression}
-                  className="flex items-center gap-1.5 px-4 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-500 text-white font-bold shadow-md transition-all"
+                  className="min-h-[42px] flex-1 sm:flex-initial flex items-center justify-center gap-1.5 px-5 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs sm:text-sm shadow-md transition-all active:scale-[0.98]"
                 >
-                  <Square size={13} fill="currentColor" />
+                  <Square size={14} fill="currentColor" />
                   <span>伴奏停止</span>
                 </button>
               ) : (
                 <button
                   onClick={handlePlayProgression}
-                  className="flex items-center gap-1.5 px-4 py-1.5 rounded-lg bg-gradient-to-r from-teal-500 to-emerald-500 hover:opacity-95 text-slate-950 font-bold shadow-md transition-all"
+                  className="min-h-[42px] flex-1 sm:flex-initial flex items-center justify-center gap-1.5 px-5 py-2 rounded-xl bg-gradient-to-r from-teal-500 to-emerald-500 hover:opacity-95 text-slate-950 font-bold text-xs sm:text-sm shadow-md transition-all active:scale-[0.98]"
                 >
-                  <Play size={13} fill="currentColor" />
+                  <Play size={14} fill="currentColor" />
                   <span>伴奏ループ再生</span>
                 </button>
               )}
@@ -578,9 +578,9 @@ export function App() {
               </div>
 
               {/* Random Base Chord Generator Button */}
-              <div className="p-3 bg-gradient-to-r from-amber-500/10 to-sky-500/10 rounded-xl border border-amber-500/20 flex items-center justify-between">
+              <div className="p-3.5 bg-gradient-to-r from-amber-500/10 to-sky-500/10 rounded-xl border border-amber-500/20 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
                 <div>
-                  <span className="text-xs font-bold text-amber-300 block">
+                  <span className="text-xs sm:text-sm font-bold text-amber-300 block">
                     起点コードを完全ランダム生成
                   </span>
                   <span className="text-[11px] text-slate-400">
@@ -589,9 +589,9 @@ export function App() {
                 </div>
                 <button
                   onClick={() => handleGenerateRandomBase(voiceCount)}
-                  className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-bold shadow-md transition-all"
+                  className="min-h-[44px] flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 active:scale-[0.98] text-slate-950 text-xs sm:text-sm font-black shadow-md transition-all self-stretch sm:self-auto"
                 >
-                  <Dices size={15} />
+                  <Dices size={16} />
                   <span>ランダム生成</span>
                 </button>
               </div>
@@ -613,7 +613,7 @@ export function App() {
                     setCurrentMorphCandidate(null);
                     audioEngine.playChord(notes, 2.0);
                   }}
-                  className="w-full bg-slate-900 border border-white/10 rounded-xl px-3 py-2 text-sm text-slate-200 focus:border-sky-500 transition-colors"
+                  className="w-full min-h-[44px] bg-slate-900 border border-white/10 rounded-xl px-3.5 py-2.5 text-xs sm:text-sm text-slate-100 focus:border-sky-500 transition-colors cursor-pointer"
                 >
                   {PRESET_CHORDS.map((p, idx) => (
                     <option key={idx} value={idx}>
@@ -655,57 +655,57 @@ export function App() {
                             : 'bg-slate-900/60 border-white/5'
                         }`}
                       >
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2.5">
                           <button
                             onClick={() => toggleVoiceLock(voiceIdx)}
                             title={isLocked ? 'ロック解除' : 'この声を固定してモーフィング'}
-                            className={`p-1.5 rounded-lg border transition-colors ${
+                            className={`min-w-[40px] min-h-[40px] flex items-center justify-center rounded-xl border transition-colors ${
                               isLocked
-                                ? 'bg-amber-500/20 text-amber-300 border-amber-500/40'
-                                : 'text-slate-500 hover:text-slate-300 border-transparent hover:bg-slate-800'
+                                ? 'bg-amber-500/25 text-amber-300 border-amber-500/50'
+                                : 'text-slate-400 hover:text-slate-200 border-white/10 bg-slate-800/60'
                             }`}
                           >
-                            {isLocked ? <Lock size={13} /> : <Unlock size={13} />}
+                            {isLocked ? <Lock size={16} /> : <Unlock size={16} />}
                           </button>
                           <div>
-                            <span className="text-[10px] text-slate-400 block font-medium">
+                            <span className="text-[11px] text-slate-400 block font-medium">
                               {voiceRole}
                             </span>
-                            <span className="text-sm font-bold font-mono text-white">
+                            <span className="text-base font-bold font-mono text-white">
                               {noteInfo.name}{' '}
-                              <span className="text-[10px] text-slate-500 font-normal">
+                              <span className="text-xs text-slate-500 font-normal">
                                 ({midi})
                               </span>
                             </span>
                           </div>
                         </div>
 
-                        {/* Fine Tweak Buttons */}
-                        <div className="flex items-center gap-1">
+                        {/* Fine Tweak Buttons (Touch-friendly 38x38px) */}
+                        <div className="flex items-center gap-1 sm:gap-1.5">
                           <button
                             onClick={() => adjustVoice(voiceIdx, -2)}
-                            className="px-2 py-0.5 rounded bg-slate-800 hover:bg-rose-950 hover:text-rose-300 text-slate-300 border border-white/10 text-xs font-mono font-bold"
+                            className="w-9 h-9 sm:w-10 sm:h-10 flex items-center justify-center rounded-xl bg-slate-800 hover:bg-rose-950 hover:text-rose-300 active:scale-95 text-slate-200 border border-white/10 text-xs font-mono font-bold"
                             title="2半音下げる (-2)"
                           >
                             -2
                           </button>
                           <button
                             onClick={() => adjustVoice(voiceIdx, -1)}
-                            className="px-2 py-0.5 rounded bg-slate-800 hover:bg-rose-950 hover:text-rose-300 text-slate-300 border border-white/10 text-xs font-mono font-bold"
+                            className="w-9 h-9 sm:w-10 sm:h-10 flex items-center justify-center rounded-xl bg-slate-800 hover:bg-rose-950 hover:text-rose-300 active:scale-95 text-slate-200 border border-white/10 text-xs font-mono font-bold"
                             title="1半音下げる (-1)"
                           >
                             -1
                           </button>
                           <button
                             onClick={() => adjustVoice(voiceIdx, 1)}
-                            className="px-2 py-0.5 rounded bg-slate-800 hover:bg-emerald-950 hover:text-emerald-300 text-slate-300 border border-white/10 text-xs font-mono font-bold"
+                            className="w-9 h-9 sm:w-10 sm:h-10 flex items-center justify-center rounded-xl bg-slate-800 hover:bg-emerald-950 hover:text-emerald-300 active:scale-95 text-slate-200 border border-white/10 text-xs font-mono font-bold"
                             title="1半音上げる (+1)"
                           >
                             +1
                           </button>
                           <button
                             onClick={() => adjustVoice(voiceIdx, 2)}
-                            className="px-2 py-0.5 rounded bg-slate-800 hover:bg-emerald-950 hover:text-emerald-300 text-slate-300 border border-white/10 text-xs font-mono font-bold"
+                            className="w-9 h-9 sm:w-10 sm:h-10 flex items-center justify-center rounded-xl bg-slate-800 hover:bg-emerald-950 hover:text-emerald-300 active:scale-95 text-slate-200 border border-white/10 text-xs font-mono font-bold"
                             title="2半音上げる (+2)"
                           >
                             +2
