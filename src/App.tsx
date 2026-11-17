@@ -109,10 +109,14 @@ export function App() {
       return clone;
     });
 
-    // If updating the chord that corresponds to current base, keep base in sync
-    if (chordIndex === 0 && customNotes.length === updatedNotes.length) {
-      setCustomNotes([...updatedNotes]);
-    }
+    // If updating the last chord in the progression, keep the base exploration chord in sync
+    // Or if progression has only 1 chord (index 0) or is being edited
+    setProgression(prev => {
+      if (chordIndex === prev.length - 1 && customNotes.length === updatedNotes.length) {
+        setCustomNotes([...updatedNotes]);
+      }
+      return prev;
+    });
   };
 
   const handleLoadProgression = (item: SavedProgressionItem) => {
@@ -120,10 +124,12 @@ export function App() {
       setProgression([...item.chords]);
       if (item.bpm) setBpm(item.bpm);
       if (item.patternId) setSelectedPatternId(item.patternId);
-      // Set the first chord as the current base
-      setCustomNotes([...item.chords[0].notes]);
+      // Set the LAST chord as the current base so subsequent exploration continues from the end of the progression
+      const lastChord = item.chords[item.chords.length - 1];
+      setCustomNotes([...lastChord.notes]);
+      setVoiceCount(lastChord.notes.length);
       setCurrentMorphCandidate(null);
-      audioEngine.playChord(item.chords[0].notes, 2.0);
+      audioEngine.playChord(lastChord.notes, 2.0);
     }
   };
 
@@ -137,13 +143,16 @@ export function App() {
   };
 
   // 2. Sample Random Morph & Play Sequence (Base -> Morph)
-  // 2. Sample Random Morph & Play Sequence (Plays from 1st chord if 3rd+ chord is being generated)
+  // Plays from 1st chord through to the new candidate if progression already has chords!
   const handleRandomMorphAndPlay = async () => {
     if (isTransitionPlaying) return;
     setIsTransitionPlaying(true);
 
-    // Sample a new random candidate where each voice rolls [-maxDelta .. +maxDelta]
-    const candidate = sampleRandomMorph(customNotes, lockedVoices, maxDelta);
+    // When progression has chords, always ensure the starting base is the last chord of the progression
+    const baseNotes = progression.length > 0 ? progression[progression.length - 1].notes : customNotes;
+
+    // Sample a new random candidate from the previous chord
+    const candidate = sampleRandomMorph(baseNotes, lockedVoices, maxDelta);
     setCurrentMorphCandidate(candidate);
 
     // If progression already has chords saved, play from Chord 1 through the current progression, then candidate!
@@ -163,7 +172,7 @@ export function App() {
     } else {
       // First 2 chords: Play Base Chord for 2.0s
       setActiveAuditionIndex('base');
-      audioEngine.playChord(customNotes, 2.0);
+      audioEngine.playChord(baseNotes, 2.0);
       await new Promise(resolve => setTimeout(resolve, 2000));
 
       // Then play Morph Candidate for 2.0s
@@ -909,14 +918,27 @@ export function App() {
           onPlay={handlePlayProgression}
           onStop={handleStopProgression}
           onRemoveChord={(idx) => {
-            setProgression(prev => prev.filter((_, i) => i !== idx));
+            setProgression(prev => {
+              const next = prev.filter((_, i) => i !== idx);
+              if (next.length > 0) {
+                const last = next[next.length - 1];
+                setCustomNotes([...last.notes]);
+                setVoiceCount(last.notes.length);
+              }
+              return next;
+            });
+            setCurrentMorphCandidate(null);
           }}
           onSelectChord={(chord) => {
             setCustomNotes([...chord.notes]);
+            setVoiceCount(chord.notes.length);
             setCurrentMorphCandidate(null);
             audioEngine.playChord(chord.notes, 2.0);
           }}
-          onClear={() => setProgression([])}
+          onClear={() => {
+            setProgression([]);
+            setCurrentMorphCandidate(null);
+          }}
           bpm={bpm}
           onBpmChange={setBpm}
           selectedPatternId={selectedPatternId}
