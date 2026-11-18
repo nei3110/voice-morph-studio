@@ -47,6 +47,11 @@ export const ChordVoicingModal: React.FC<ChordVoicingModalProps> = ({
   const handleAdjustVoice = (voiceIdx: number, delta: number) => {
     const updatedNotes = [...currentChord.notes];
     updatedNotes[voiceIdx] = updatedNotes[voiceIdx] + delta;
+    if (voiceIdx === 0 && updatedNotes.length > 1) {
+      updatedNotes[1] = updatedNotes[0] + 12;
+    } else if (voiceIdx === 1 && updatedNotes.length > 1) {
+      updatedNotes[0] = updatedNotes[1] - 12;
+    }
     onUpdateChord(selectedIndex, updatedNotes);
     audioEngine.playChord(updatedNotes, 1.5);
   };
@@ -208,6 +213,11 @@ export const ChordVoicingModal: React.FC<ChordVoicingModalProps> = ({
                           {isBass && (
                             <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 font-semibold">
                               Bass
+                            </span>
+                          )}
+                          {voiceIdx === 1 && (
+                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-sky-500/20 text-sky-300 font-semibold">
+                              Octave (Bass+12)
                             </span>
                           )}
                         </div>

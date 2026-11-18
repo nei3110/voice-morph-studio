@@ -41,9 +41,11 @@ export function App() {
   // Authentication status
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => isUserAuthenticated());
 
-  // Current Base Chord Configuration: Bass at C3 (48), Chord at C4+ (60, 64, 67, 71)
-  const [voiceCount, setVoiceCount] = useState<number>(4); // 3, 4, 5
-  const [customNotes, setCustomNotes] = useState<number[]>([48, 60, 64, 67]); // Bass C3, Upper: C4, E4, G4
+  // Current Base Chord Configuration:
+  // chordCount (3, 4, 5) represents upper chord voices excluding the bass note (e.g. 3 = 三和音: 1 Bass + 3 Upper Voices = 4 notes)
+  // Bass at C3 (48), 2nd lowest at C4 (60, exactly octave of Bass), then upper voicing (64, 67)
+  const [upperChordCount, setUpperChordCount] = useState<number>(3); // 3 (三和音), 4 (四和音), 5 (五和音)
+  const [customNotes, setCustomNotes] = useState<number[]>([48, 60, 64, 67]); // Bass C3 (48), Octave C4 (60), E4 (64), G4 (67)
   const [lockedVoices, setLockedVoices] = useState<number[]>([]); // indices of locked voices
   const [maxDelta, setMaxDelta] = useState<number>(2); // ±1 or ±2 semitones
 
@@ -127,15 +129,15 @@ export function App() {
       // Set the LAST chord as the current base so subsequent exploration continues from the end of the progression
       const lastChord = item.chords[item.chords.length - 1];
       setCustomNotes([...lastChord.notes]);
-      setVoiceCount(lastChord.notes.length);
+      setUpperChordCount(Math.max(1, lastChord.notes.length - 1));
       setCurrentMorphCandidate(null);
       audioEngine.playChord(lastChord.notes, 2.0);
     }
   };
 
   // 1. Generate Completely Random Base Chord (Does not need to be consonant!)
-  const handleGenerateRandomBase = (voices: number = voiceCount) => {
-    const randomNotes = generateRandomRawChord(voices);
+  const handleGenerateRandomBase = (upperCount: number = upperChordCount) => {
+    const randomNotes = generateRandomRawChord(upperCount);
     setCustomNotes(randomNotes);
     setLockedVoices([]);
     setCurrentMorphCandidate(null);
@@ -260,10 +262,17 @@ export function App() {
     return identifyChord(customNotes);
   }, [customNotes]);
 
-  // Adjust single voice
+  // Adjust single voice:
+  // If Bass (voice 0) changes by delta, voice 1 (2nd lowest note) automatically mirrors the change to stay an exact octave above
+  // If voice 1 changes by delta, Bass (voice 0) automatically mirrors the change to stay an exact octave below
   const adjustVoice = (voiceIndex: number, delta: number) => {
     const updated = [...customNotes];
     updated[voiceIndex] += delta;
+    if (voiceIndex === 0 && updated.length > 1) {
+      updated[1] = updated[0] + 12;
+    } else if (voiceIndex === 1 && updated.length > 1) {
+      updated[0] = updated[1] - 12;
+    }
     setCustomNotes(updated);
     audioEngine.playChord(updated);
   };
@@ -735,19 +744,20 @@ export function App() {
             
             {/* Voice count switch */}
             <div className="flex items-center gap-1.5 bg-black/40 p-1.5 rounded-xl border border-white/10 text-xs font-mono self-start sm:self-auto">
-              <span className="text-slate-400 text-xs px-1">声部数:</span>
+              <span className="text-slate-400 text-xs px-1">和音数 (最低音除外):</span>
               {[3, 4, 5].map((cnt) => (
                 <button
                   key={cnt}
                   onClick={() => {
-                    setVoiceCount(cnt);
+                    setUpperChordCount(cnt);
                     handleGenerateRandomBase(cnt);
                   }}
                   className={`min-h-[32px] px-3 rounded-lg font-bold transition-all active:scale-95 ${
-                    voiceCount === cnt
+                    upperChordCount === cnt
                       ? 'bg-sky-500 text-slate-950 shadow-md'
                       : 'text-slate-300 hover:text-white bg-slate-800/80'
                   }`}
+                  title={`${cnt}和音 (ベース音 + 上声${cnt}音 = 計${cnt + 1}音)`}
                 >
                   {cnt}和音
                 </button>
@@ -765,11 +775,11 @@ export function App() {
                     起点コードを完全ランダム生成
                   </span>
                   <span className="text-xs text-slate-400">
-                    協和音・既存コードに限定せず、偶発的な響きを抽出
+                    ベース音＋オクターブ同音＋上声{upperChordCount - 1}音（計{upperChordCount + 1}音）で偶発的な響きを抽出
                   </span>
                 </div>
                 <button
-                  onClick={() => handleGenerateRandomBase(voiceCount)}
+                  onClick={() => handleGenerateRandomBase(upperChordCount)}
                   className="min-h-[46px] flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 active:scale-[0.98] text-slate-950 text-xs sm:text-sm font-black shadow-md transition-all self-stretch sm:self-auto shrink-0"
                 >
                   <Dices size={18} />
@@ -780,16 +790,20 @@ export function App() {
               {/* Or Select from Traditional Presets */}
               <div>
                 <label className="text-xs text-slate-400 mb-1.5 block font-medium">
-                  または定番プリセット和音から選ぶ (ベースC3 + 和音C4以上)
+                  または定番プリセット和音から選ぶ (ベースC3 + オクターブC4 + 構成音)
                 </label>
                 <select
                   onChange={(e) => {
                     const preset = PRESET_CHORDS[Number(e.target.value)];
                     const bassMidi = 48; // C3
-                    const chordNotes = preset.notes.map(semitone => 60 + semitone); // C4+
-                    const notes = [bassMidi, ...chordNotes];
+                    const upperNotes = Array.from(new Set(preset.notes.map(semitone => 60 + semitone))).sort((a, b) => a - b);
+                    // Ensure the first upper note is exactly octave (60)
+                    if (!upperNotes.includes(60)) {
+                      upperNotes.unshift(60);
+                    }
+                    const notes = [bassMidi, ...upperNotes];
                     setCustomNotes(notes);
-                    setVoiceCount(notes.length);
+                    setUpperChordCount(Math.max(1, notes.length - 1));
                     setLockedVoices([]);
                     setCurrentMorphCandidate(null);
                     audioEngine.playChord(notes, 2.0);
@@ -831,6 +845,8 @@ export function App() {
                   const voiceRole =
                     voiceIdx === 0
                       ? 'Bass (最低音)'
+                      : voiceIdx === 1
+                      ? 'Octave Root (ベースの1オクターブ上)'
                       : voiceIdx === customNotes.length - 1
                       ? 'Lead (最高音)'
                       : `Voice ${voiceIdx + 1} (内声)`;
@@ -923,7 +939,7 @@ export function App() {
               if (next.length > 0) {
                 const last = next[next.length - 1];
                 setCustomNotes([...last.notes]);
-                setVoiceCount(last.notes.length);
+                setUpperChordCount(Math.max(1, last.notes.length - 1));
               }
               return next;
             });
@@ -931,7 +947,7 @@ export function App() {
           }}
           onSelectChord={(chord) => {
             setCustomNotes([...chord.notes]);
-            setVoiceCount(chord.notes.length);
+            setUpperChordCount(Math.max(1, chord.notes.length - 1));
             setCurrentMorphCandidate(null);
             audioEngine.playChord(chord.notes, 2.0);
           }}

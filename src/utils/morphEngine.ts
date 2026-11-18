@@ -15,24 +15,24 @@ export interface MorphFilterOptions {
 /**
  * Generate a chord composed of:
  * 1. A Bass note around C3 (MIDI 48 to 59)
- * 2. An Upper Chord Voicing at C4 or above (MIDI 60 to 76)
- * The lowest note of the upper chord is specifically an octave above the bass note (e.g. Bass=C3 -> Upper Root=C4)
- * The remaining (voiceCount - 2) voices are randomly placed across C4 - E5 (MIDI 61 to 76)
+ * 2. An Upper Chord Voicing at C4 or above (MIDI 60 to 79)
+ * The lowest note of the upper chord (voice 1) is strictly an octave above the bass note (e.g. Bass=C3 -> Upper Root=C4)
+ * chordCount (e.g. 3 for 三和音, 4 for 四和音, 5 for 五和音) defines the number of tones EXCLUDING the bass note.
+ * Thus a 三和音 (triad) consists of 1 bass note + 3 upper notes = 4 notes in total.
  */
-export function generateRandomRawChord(voiceCount: number = 4): number[] {
+export function generateRandomRawChord(upperChordCount: number = 3): number[] {
   // Bass pitch class: 0 to 11 (C3=48 to B3=59)
   const bassMidi = 48 + Math.floor(Math.random() * 12);
-  const upperRootMidi = bassMidi + 12; // Octave higher: C4 to B4 (60 to 71)
+  const upperRootMidi = bassMidi + 12; // Strictly octave higher: C4 to B4 (60 to 71)
 
   const upperSet = new Set<number>();
   upperSet.add(upperRootMidi);
 
-  const upperVoiceCount = Math.max(1, voiceCount - 1);
   const minUpperMidi = upperRootMidi; // Keep at or above octave root
   const maxUpperMidi = 79; // up to G5
 
   let attempts = 0;
-  while (upperSet.size < upperVoiceCount && attempts < 100) {
+  while (upperSet.size < upperChordCount && attempts < 150) {
     attempts++;
     const randomNote = Math.floor(Math.random() * (maxUpperMidi - minUpperMidi + 1)) + minUpperMidi;
     upperSet.add(randomNote);
@@ -40,7 +40,7 @@ export function generateRandomRawChord(voiceCount: number = 4): number[] {
 
   // Fallback if needed
   let fallback = minUpperMidi + 3;
-  while (upperSet.size < upperVoiceCount) {
+  while (upperSet.size < upperChordCount) {
     if (!upperSet.has(fallback)) upperSet.add(fallback);
     fallback++;
   }
@@ -51,9 +51,10 @@ export function generateRandomRawChord(voiceCount: number = 4): number[] {
 
 /**
  * Perform a single random morph on the current chord:
- * Each constituent voice gets an independent random shift in [-maxDelta .. +maxDelta] (e.g. -2, -1, 0, +1, +2).
- * Multiple voices can move simultaneously.
- * Ensures at least one voice moves, and avoids pitch collisions.
+ * - Upper voices (voice 2+) shift by [-maxDelta .. +maxDelta] (default ±2 semitones).
+ * - Bass note (voice 0) is not limited to 2 semitones and can move to ANY pitch class (C3-B3: 48-59, or any offset).
+ * - Voice 1 (2nd lowest note) is ALWAYS strictly locked to voice 0 + 12 (exact octave above bass).
+ * Ensures at least one voice moves and avoids collisions.
  */
 export function sampleRandomMorph(
   currentNotes: number[],
@@ -69,15 +70,36 @@ export function sampleRandomMorph(
   let attempts = 0;
   let bestCandidate: MorphCandidate | null = null;
 
-  while (attempts < 200) {
+  while (attempts < 300) {
     attempts++;
-    const shifts: number[] = [];
-    for (let i = 0; i < n; i++) {
+    const shifts: number[] = new Array(n).fill(0);
+
+    // 1. Bass note (voice 0): can shift freely (e.g. any note in C3-B3 range 48-59)
+    if (!lockedVoiceIndices.includes(0)) {
+      // Pick a random bass note from C3 (48) to B3 (59)
+      const possibleBassNotes: number[] = [];
+      for (let m = 48; m <= 59; m++) {
+        possibleBassNotes.push(m);
+      }
+      const targetBass = possibleBassNotes[Math.floor(Math.random() * possibleBassNotes.length)];
+      shifts[0] = targetBass - currentNotes[0];
+    } else {
+      shifts[0] = 0;
+    }
+
+    // 2. Voice 1 (2nd lowest note): ALWAYS the octave of the bass note
+    // newNotes[1] must equal newNotes[0] + 12
+    if (n > 1) {
+      const targetVoice1 = (currentNotes[0] + shifts[0]) + 12;
+      shifts[1] = targetVoice1 - currentNotes[1];
+    }
+
+    // 3. Remaining upper voices (index 2 to n-1): shift by [-maxDelta .. +maxDelta]
+    for (let i = 2; i < n; i++) {
       if (lockedVoiceIndices.includes(i)) {
-        shifts.push(0);
+        shifts[i] = 0;
       } else {
-        const randShift = deltas[Math.floor(Math.random() * deltas.length)];
-        shifts.push(randShift);
+        shifts[i] = deltas[Math.floor(Math.random() * deltas.length)];
       }
     }
 
@@ -87,19 +109,23 @@ export function sampleRandomMorph(
 
     const newNotes = currentNotes.map((note, idx) => note + shifts[idx]);
 
-    // Avoid unison collision
-    if (new Set(newNotes).size !== newNotes.length) continue;
+    // Check collision among upper voices (voice 1..n-1)
+    const upperNotes = newNotes.slice(1);
+    if (new Set(upperNotes).size !== upperNotes.length) continue;
+
+    // Ensure upper voices stay above bass
+    if (newNotes[1] <= newNotes[0]) continue;
 
     const totalMovement = shifts.reduce((acc, s) => acc + Math.abs(s), 0);
     const voicesMoving = shifts.filter(s => s !== 0).length;
     const chordName = identifyChord(newNotes);
     const smoothness = evaluateHarmonicSmoothness(newNotes);
 
-    let tag = `${voicesMoving}音移動 (±${maxDelta}半音)`;
-    if (voicesMoving === 1) {
-      tag = '1音微小シフト';
-    } else if (voicesMoving === n) {
-      tag = '全声部モーフィング';
+    let tag = `${voicesMoving}音移動 (ベース自由跳躍 + オクターブ同期)`;
+    if (shifts[0] !== 0 && voicesMoving === 2) {
+      tag = 'ベース & オクターブ根音移動';
+    } else if (shifts[0] === 0) {
+      tag = `上声音変形 (±${maxDelta}半音)`;
     }
 
     bestCandidate = {
@@ -116,16 +142,21 @@ export function sampleRandomMorph(
 
   if (bestCandidate) return bestCandidate;
 
-  // Fallback: move 1 unlocked note by +1
-  const shifts = currentNotes.map((_, i) => (lockedVoiceIndices.includes(i) ? 0 : (i === 0 ? 1 : 0)));
+  // Fallback: shift bass + octave by a random semitone, keeping octave lock
+  const bassDelta = 1;
+  const shifts = currentNotes.map((_, i) => {
+    if (i === 0) return bassDelta;
+    if (i === 1) return (currentNotes[0] + bassDelta + 12) - currentNotes[1];
+    return 0;
+  });
   const fallbackNotes = currentNotes.map((note, idx) => note + shifts[idx]);
   return {
     id: `rand-morph-fallback-${Date.now()}`,
     notes: fallbackNotes,
     shifts,
-    totalVoiceMovement: 1,
+    totalVoiceMovement: Math.abs(shifts[0]) + Math.abs(shifts[1]),
     nameEstimate: identifyChord(fallbackNotes),
-    tag: '1音シフト',
+    tag: 'ベース・オクターブ移動',
     consonanceScore: evaluateHarmonicSmoothness(fallbackNotes),
   };
 }
